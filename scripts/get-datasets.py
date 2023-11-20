@@ -13,8 +13,7 @@ to_save = folder / 'openml-datasets-CC18.csv'
 if to_save.exists():
     datasets = pd.read_csv(to_save)
 else:
-    # benchmark = openml.study.get_suite('OpenML-CC18')
-    # datasets = benchmark.data
+    # Remove the `tag` keyword argument to get all datasets
     datasets = openml.datasets.list_datasets(tag='OpenML-CC18', output_format='dataframe')
     datasets.to_csv(to_save, index=False)
 
@@ -41,3 +40,5 @@ for _, row in datasets.iterrows():
         print(f"{v.name} ({v.data_type}), {v.nominal_values} {missing}")
     for k, q in dataset.qualities.items():
         if not pd.isna(q): print(k, q)
+
+# Use PercentageOfInstancesWithMissingValues to screen for data with missing values
