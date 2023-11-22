@@ -19,6 +19,28 @@ For missing packages, use `poetry add <package name>` (see [poetry docs](https:/
 poetry run python scripts/get-datasets.py 
 ```
 
+## Missing values imputation
+
+For this task, we will use a customised version of [Jenga](https://github.com/schelterlabs/jenga) placed in `scripts/jenga`.
+
+### Generating missing values from complete datasets
+
+You can generate missing values for data stored in `/data/openml`.
+The generated data will be output in `/data/working/generated-missing-values`.
+
+To generate for a specific OpenML ID, try
+```bash
+poetry run python scripts/generate-missing-values.py --openml_id [openml_id]
+```
+
+To generate for all the data in the OpenML directory, try
+```bash
+poetry run python scripts/generate-missing-values.py --all
+```
+
+[Optional]
+
+You can log the missingness patterns by adding `--logs` option.
 
 
 ## Getting started
