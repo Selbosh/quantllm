@@ -1,9 +1,8 @@
 from pathlib import Path
 import argparse
-
+import datetime as dt
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
 
 from sklearn.impute import SimpleImputer, KNNImputer
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -12,8 +11,6 @@ from modules.llmimputer import LLMImputer
 
 
 def mean_imputation(X):
-    print(f'size of X: {X.shape}')
-    
     imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
     X_imputed = imputer.fit_transform(X)
     return X_imputed
@@ -67,38 +64,53 @@ def main():
     argparser.add_argument('--mode', type=str, default='mean')
     args = argparser.parse_args()
 
+    result_path = Path('../../data/output/experiment/imputation/imputation_result.csv')
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    timestamp = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    if not result_path.exists():
+        with open(result_path, 'w') as f:
+            f.write('timestamp, imputation_mode, openml_id, missing_column, n_missing_values, missingness, rmse\n')
+
     # load complete data
-    complete_path = Path('../../data/openml/6/X.csv')
-    X_complete = pd.read_csv(complete_path)
+    incomplete_list_path = Path('../../data/working/incomplete/logs.csv')
+    incomplete_list = pd.read_csv(incomplete_list_path)
 
-    # load incomplete data
-    incomplete_path = Path('../../data/working/generated-missing-values/6/X_high-100-MAR.csv')
-    X_incomplete = pd.read_csv(incomplete_path)
+    for openml_id in incomplete_list['openml_id']:
+        complete_file_path = Path(f'../../data/openml/{openml_id}/X.csv')
+        X_complete = pd.read_csv(complete_file_path)
 
-    n_missing_values = X_incomplete.isna().sum().sum()
-    print(f'Number of missing values: {n_missing_values}')
+        incomplete_dir_path = Path(f'../../data/working/incomplete/{openml_id}')
+        for incomplete_file_path in incomplete_dir_path.glob('*.csv'):
+            # load incomplete data
+            X_incomplete = pd.read_csv(incomplete_file_path)
 
-    # Split into train and test (8:2)
-    X_complete_train, X_complete_test = train_test_split(X_complete, test_size=0.2, shuffle=False)
-    X_incomplete_train, X_incomplete_test = train_test_split(X_incomplete, test_size=0.2, shuffle=False)
+            n_missing_values = X_incomplete.isna().sum().sum()
+            
+            missing_column = X_incomplete.columns[X_incomplete.isna().any()].tolist()[0]
+            missingness = incomplete_file_path.stem.split('-')[-1]
+            
+            # Impute missing values
+            # For non ML-based imputation, we can use fit methods on test data
+            if args.mode == 'mean':
+                X_incomplete_test_imputed = mean_imputation(X_incomplete)
+            elif args.mode == 'mode':
+                X_incomplete_test_imputed = mode_imputation(X_incomplete)
+            elif args.mode == 'knn':
+                X_incomplete_test_imputed = knn_imputation(X_incomplete)
+            elif args.mode == 'rf':
+                X_incomplete_test_imputed = rf_imputation(X_incomplete)
+            elif args.mode == 'llm':
+                X_incomplete_test_imputed = llm_imputation(X_incomplete)
 
-    # Impute missing values
-    # For non ML-based imputation, we can use fit methods on test data
-    if args.mode == 'mean':
-        X_incomplete_test_imputed = mean_imputation(X_incomplete_test)
-    elif args.mode == 'mode':
-        X_incomplete_test_imputed = mode_imputation(X_incomplete_test)
-    elif args.mode == 'knn':
-        X_incomplete_test_imputed = knn_imputation(X_incomplete_test)
-    elif args.mode == 'rf':
-        X_incomplete_test_imputed = rf_imputation(X_incomplete_test)
-    elif args.mode == 'llm':
-        X_incomplete_test_imputed = llm_imputation(X_incomplete_test)
-
-    print(f'Imputation mode: {args.mode}')
-
-    rmse = evaluate(X_complete_test, X_incomplete_test_imputed)
-    print(f'RMSE: {rmse}')
+            rmse = evaluate(X_complete, X_incomplete_test_imputed)
+            
+            print(f'Imputation mode: {args.mode}')
+            print(f'incomplete_file_path: {incomplete_file_path}')
+            print(f'RMSE: {rmse}')
+            
+            with open(result_path, 'a') as f:
+                f.write(f'{timestamp}, {args.mode}, {openml_id}, {missing_column}, {n_missing_values}, {missingness}, {rmse}\n')
 
     return
 

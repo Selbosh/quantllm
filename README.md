@@ -41,6 +41,20 @@ You can specify the number of corrupted rows by adding `--n_corrupted_rows` opti
 poetry run python scripts/imputation/generate-missing-values.py --n_corrupted_rows 10 20 30
 ```
 
+### Experiment
+
+We can test some missing values imputation methods for the generated incomplete datasets.
+The following methods are available:
+- Mean imputation
+- Mode imputation
+- knn method
+- Random Forest based method
+- LLM based method
+
+```bash
+poetry run python scripts/imputation/experiment.py --mode [mean, mode, knn, rf, llm]
+```
+
 ## Getting started
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.
