@@ -25,23 +25,21 @@ For this task, we will use a customised version of [Jenga](https://github.com/sc
 
 ### Generating missing values from complete datasets
 
-You can generate missing values for data stored in `/data/openml`.
-The generated data will be output in `/data/working/generated-missing-values`.
+You can generate missing values for data stored in `/data/openml`. The generated data will be output in `/data/working/incomplete`.
 
-To generate for a specific OpenML ID, try
 ```bash
-poetry run python scripts/generate-missing-values.py --openml_id [openml_id]
+poetry run python scripts/imputation/generate-missing-values.py
 ```
 
-To generate for all the data in the OpenML directory, try
+The target datasets for missing values generation will be selected randomly. You can specify the number of the target datasets by adding `--n_selected_datasets` option. The default value is 10.
 ```bash
-poetry run python scripts/generate-missing-values.py --all
+poetry run python scripts/imputation/generate-missing-values.py --n_selected_datasets 20
 ```
 
-[Optional]
-
-You can log the missingness patterns by adding `--logs` option.
-
+You can specify the number of corrupted rows by adding `--n_corrupted_rows` option. You can give multiple numbers. The default values are [100, 300, 500].
+```bash
+poetry run python scripts/imputation/generate-missing-values.py --n_corrupted_rows 10 20 30
+```
 
 ## Getting started
 
