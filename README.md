@@ -45,14 +45,13 @@ poetry run python scripts/imputation/generate-missing-values.py --n_corrupted_ro
 
 We can test some missing values imputation methods for the generated incomplete datasets.
 The following methods are available:
-- Mean imputation
-- Mode imputation
-- knn method
-- Random Forest based method
-- LLM based method
+- Mean/Mode
+- KNN
+- Random Forest
+- LLM
 
 ```bash
-poetry run python scripts/imputation/experiment.py --mode [mean, mode, knn, rf, llm]
+poetry run python scripts/imputation/experiment.py --method {meanmode, knn, rf, llm}
 ```
 
 ## Getting started
