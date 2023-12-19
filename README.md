@@ -23,7 +23,7 @@ poetry run python scripts/get-datasets.py
 
 For this task, we will use a customised version of [Jenga](https://github.com/schelterlabs/jenga) placed in `scripts/jenga`.
 
-### Generating missing values from complete datasets
+### Generate missing values from complete datasets
 
 You can generate missing values for data stored in `/data/openml`. The generated data will be output in `/data/working/incomplete`.
 
@@ -31,27 +31,49 @@ You can generate missing values for data stored in `/data/openml`. The generated
 poetry run python scripts/imputation/generate-missing-values.py
 ```
 
-The target datasets for missing values generation will be selected randomly. You can specify the number of the target datasets by adding `--n_selected_datasets` option. The default value is 10.
 ```bash
-poetry run python scripts/imputation/generate-missing-values.py --n_selected_datasets 20
+poetry run python scripts/imputation/generate-missing-values.py 
+  [--openml_id OPENML_ID] [--n_selected_datasets N_SELECTED_DATASETS] 
+  [--n_corrupted_rows N_CORRUPTED_ROWS] 
+  [--n_corrupted_columns N_CORRUPTED_COLUMNS] 
+  [--column_type {categorical numerical, categorical, numerical}]
+  [--seed SEED]
+
+optional arguments:
+  --openml_id             you can run for a specific dataset
+  --n_selected_datasets   if missing, the code will generate missing values for all datasets
+  --n_corrupted_rows      the default values are [100, 300, 500]
+  --n_corrupted_columns   the default value is 1
+  --column_type           you can specify target column type
+  --seed
 ```
 
-You can specify the number of corrupted rows by adding `--n_corrupted_rows` option. You can give multiple numbers. The default values are [100, 300, 500].
-```bash
-poetry run python scripts/imputation/generate-missing-values.py --n_corrupted_rows 10 20 30
+### Missing values imputation using LLMs
+
+To use LLM Imputer (`/scripts/imputation/modules/llmimputer.py`), please set your OpenAI API Key as an environmental variable.
+Create `/.env` as follows.
+```
+OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
 ```
 
 ### Experiment
 
-We can test some missing values imputation methods for the generated incomplete datasets.
+You can test multiple missing values imputation methods for the generated incomplete datasets.
 The following methods are available:
-- Mean/Mode
-- KNN
+- Mean/Mode (impute numerical values with mean and categorical values with mode)
+- K-nearest neighbors
 - Random Forest
-- LLM
+- LLM (GPT-4)
 
 ```bash
-poetry run python scripts/imputation/experiment.py --method {meanmode, knn, rf, llm}
+poetry run python scripts/imputation/experiment.py 
+  [--method {meanmode, knn, rf, llm}] [--debug] 
+  [--openml_id OPENML_ID] [--X_incomplete_filename FILENAME]
+
+optional arguments:
+  --debug
+  --openml_id
+  --X_incomplete_filename
 ```
 
 ## Getting started

@@ -31,9 +31,10 @@ def experiment(args: argparse.Namespace, openml_id: int, X_original_filepath: Pa
     elif args.method == 'rf':
         imputer = RandomForestImputer()
     elif args.method == 'llm':
-        description_file = openml_dir / f'{openml_id}/description.txt'
+        openml_dirpath = Path(__file__).parents[2] / 'data/openml'
+        description_file = openml_dirpath / f'{openml_id}/description.txt'
         description = description_file.read_text()
-        imputer = LLMImputer()
+        imputer = LLMImputer(dataset_description=description)
 
     # Run imputation
     X_imputed = imputer.fit_transform(X_incomplete)
@@ -62,6 +63,8 @@ def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--method', type=str, default='meanmode')
     argparser.add_argument('--debug', action='store_true')
+    argparser.add_argument('--openml_id', type=int, default=None)
+    argparser.add_argument('--X_incomplete_filename', type=str, default=None)
     args = argparser.parse_args()
 
     output_dirpath = Path(__file__).parents[2] / f'data/output/imputation/{args.method}'
@@ -76,6 +79,19 @@ def main():
 
     # path to original (complete) opanml datasets
     openml_dirpath = Path(__file__).parents[2] / 'data/openml'
+
+    # run experiment for a specific dataset
+    if args.openml_id is not None and args.X_incomplete_filename is not None:
+        openml_id = args.openml_id
+
+        X_original_filepath = openml_dirpath / f'{openml_id}/X.csv'
+        X_incomplete_filepath = incomplete_dirpath / f'{openml_id}/{args.X_incomplete_filename}'
+        X_imputed_dirpath = output_dirpath / f'imputed_data/{openml_id}'
+        X_imputed_dirpath.mkdir(parents=True, exist_ok=True)
+        X_imputed_filepath = X_imputed_dirpath / args.X_incomplete_filename
+
+        experiment(args, openml_id, X_original_filepath, X_incomplete_filepath, X_imputed_filepath, results_filepath)
+        return
 
     # run experiment for each dataset
     with open(incomplete_log_filepath, 'r') as f:
