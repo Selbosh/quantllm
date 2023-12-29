@@ -17,12 +17,12 @@ class MeanModeImputer():
 
         if X_numerical.shape[1] > 0:
             imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
-            X_numerical_imputed = imputer.fit_transform(X_numerical)
+            X_numerical_imputed = imputer.fit_transform(X_numerical.to_numpy())
             X_numerical_imputed = pd.DataFrame(X_numerical_imputed, columns=X_numerical_columns)
 
         if X_categorical.shape[1] > 0:
             imputer = SimpleImputer(missing_values=np.nan, strategy='most_frequent')
-            X_categorical_imputed = imputer.fit_transform(X_categorical)
+            X_categorical_imputed = imputer.fit_transform(X_categorical.to_numpy())
             X_categorical_imputed = pd.DataFrame(X_categorical_imputed, columns=X_categorical_columns)
 
         if X_numerical.shape[1] > 0 and X_categorical.shape[1] > 0:
@@ -51,7 +51,7 @@ class KNNImputer():
             X_numerical_imputed = pd.DataFrame(X_numerical_imputed, columns=X_numerical_columns)
 
         if X_categorical.shape[1] > 0:
-            knn = KNeighborsClassifier(n_neighbors=5, weights='distance', n_jobs=-1)
+            knn = KNeighborsClassifier(n_neighbors=5, weights='distance', n_jobs=self.n_jobs)
             imputer = IterativeImputer(estimator=knn, missing_values=np.nan, max_iter=10, random_state=42)
             encoder = OrdinalEncoder()
             X_categorical = encoder.fit_transform(X_categorical)

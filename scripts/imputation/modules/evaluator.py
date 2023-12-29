@@ -1,4 +1,4 @@
-from sklearn.metrics import mean_squared_error, f1_score
+from sklearn.metrics import mean_squared_error, f1_score, mean_absolute_error
 import numpy as np
 import pandas as pd
 
@@ -12,28 +12,31 @@ class ImputationEvaluator:
         self.X_incomplete = X_incomplete.copy()
         self.X_imputed = X_imputed.copy()
 
-        rmse_results = self.__rmse()
-        macro_f1_results = self.__macro_f1()
+        rmse_results = self.__rmse__()
+        macro_f1_results = self.__macro_f1__()
 
         return rmse_results, macro_f1_results
 
-    def __rmse(self):
+    def __rmse__(self):
         X_numerical_columns = self.X_imputed.select_dtypes(include=np.number).columns
-        X_original_numerical = self.X_original[X_numerical_columns]
-        X_imputed_numerical = self.X_imputed[X_numerical_columns]
+        X_missing_index = self.X_incomplete[X_numerical_columns].isna().any(axis=1)
+        X_original_numerical = self.X_original[X_numerical_columns].loc[X_missing_index]
+        X_imputed_numerical = self.X_imputed[X_numerical_columns].loc[X_missing_index]
 
         rmse_results = {}
         for column in X_numerical_columns:
             if self.X_incomplete[column].isna().any():
-                rmse = mean_squared_error(X_original_numerical, X_imputed_numerical, squared=False)
-                rmse_results[column] = rmse
+                mse = np.mean((X_original_numerical[column].to_numpy() - X_imputed_numerical[column].to_numpy()) ** 2)
+                var = np.var(X_original_numerical[column].to_numpy())
+                rmse_results[column] = np.sqrt(mse/var) if var != 0.0 else 0.0
 
         return rmse_results
 
-    def __macro_f1(self):
+    def __macro_f1__(self):
         X_categorical_columns = self.X_imputed.select_dtypes(exclude=np.number).columns
-        X_original_categorical = self.X_original[X_categorical_columns]
-        X_imputed_categorical = self.X_imputed[X_categorical_columns]
+        X_missing_index = self.X_incomplete[X_categorical_columns].isna().any(axis=1)
+        X_original_categorical = self.X_original[X_categorical_columns].loc[X_missing_index]
+        X_imputed_categorical = self.X_imputed[X_categorical_columns].loc[X_missing_index]
 
         macro_f1_results = {}
         for column in X_categorical_columns:
