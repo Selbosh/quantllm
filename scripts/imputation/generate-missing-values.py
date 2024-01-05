@@ -1,6 +1,7 @@
 from pathlib import Path
 from tqdm import tqdm
 import argparse
+import json
 
 import pandas as pd
 import numpy as np
@@ -14,58 +15,91 @@ def load_dataset_list(openml_dir: Path):
     return dataset_list
 
 
-def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame):
+def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, extraction_log_filepath: Path):
     candidate_datasets = dataset_list.copy()
-    if args.openml_id is not None:
-        candidate_datasets = candidate_datasets[candidate_datasets['did'] == args.openml_id]
+    
+    # Extract datasets that have no missing values
+    with open(extraction_log_filepath, 'a') as f:
+        removed_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] > 0.0]
+        f.write(','.join(removed_datasets.columns.tolist()) + '\n')
+        for _, row in removed_datasets.iterrows():
+            f.write(','.join(map(str, row.tolist())) + '\n')
+
     candidate_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] == 0.0]
+    
+    # Extract datasets which samples are less than 50000
+    with open(extraction_log_filepath, 'a') as f:
+        removed_datasets = candidate_datasets[candidate_datasets['NumberOfInstances'] > 50000.0]
+        f.write(','.join(removed_datasets.columns.tolist()) + '\n')
+        for _, row in removed_datasets.iterrows():
+            f.write(','.join(map(str, row.tolist())) + '\n')
+
+    
+    candidate_datasets = candidate_datasets[candidate_datasets['NumberOfInstances'] < 50000.0]
+    
+    if args.openml_id is not None:
+        # If openml_id is specified, return the dataset with the given openml_id
+        candidate_datasets = candidate_datasets[candidate_datasets['did'] == args.openml_id]
+    
     if 'categorical' in args.column_type and 'numerical' in args.column_type and args.n_corrupted_columns == 1:
         return candidate_datasets
+    
     if 'categorical' in args.column_type:
+        # Extract datasets that have at least one categorical column
         # Note: 'NumberOfSymbolicFeatures' includes the target column
         candidate_datasets = candidate_datasets[(candidate_datasets['NumberOfSymbolicFeatures'] - 1.0) > 0.0]
+    
     if 'numerical' in args.column_type:
+        # Extract datasets that have at least one numerical column
         candidate_datasets = candidate_datasets[candidate_datasets['NumberOfNumericFeatures'] > 0.0]
 
     return candidate_datasets
 
 
 def main():
+    # Load arguments
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--openml_id', type=int, default=None)
     argparser.add_argument('--n_selected_datasets', type=int, default=-1)
-    argparser.add_argument('--n_corrupted_rows', nargs='*', type=int, default=[100, 300, 500])
+    argparser.add_argument('--n_corrupted_rows', nargs='*', type=int, default=[50, 100, 150])
     argparser.add_argument('--n_corrupted_columns', type=int, default=1)
     argparser.add_argument('--column_type', nargs='*', type=str, default=['categorical', 'numerical'])
     argparser.add_argument('--seed', type=int, default=42)
     args = argparser.parse_args()
 
     np.random.seed(args.seed)
+    
+    data_dirpath = Path(__file__).parents[2] / 'data'
 
-    openml_dirpath = Path(__file__).parents[2] / 'data/openml/'
-
-    # Load dataset list (default: openml-datasets-CC18.csv)
+    # Load dataset list (default: /data/openml/openml-datasets-CC18.csv)
+    openml_dirpath = data_dirpath / 'openml'
     dataset_list = load_dataset_list(openml_dirpath)
-
-    # Dataset extraction
-    dataset_list = dataset_extraction(args, dataset_list)
-    if len(dataset_list) == 0:
-        print('No dataset was found that meets the criteria')
-        return
-
-    if args.n_selected_datasets == -1:
-        selected_datasets = dataset_list
-    else:
-        n_selected_datasets = int(args.n_selected_datasets) if args.openml_id is None else 1
-        selected_datasets = dataset_list.sample(n_selected_datasets, random_state=args.seed)
-
-    incomplete_dirpath = Path(__file__).parents[2] / 'data/working/incomplete/'
+    
+    incomplete_dirpath = data_dirpath / 'working/incomplete/'
     incomplete_dirpath.mkdir(parents=True, exist_ok=True)
     log_filepath = incomplete_dirpath / 'logs.csv'
+    extraction_log_filepath = incomplete_dirpath / 'extraction_logs.csv'
 
     if not log_filepath.exists():
         with open(log_filepath, 'w') as f:
             f.write('openml_id,NumberOfInstancesWithMissingValues,missing_column_name,missing_column_type,missingness\n')
+            
+    if not extraction_log_filepath.exists():
+        with open(extraction_log_filepath, 'w') as f:
+            f.write('did,name,version,uploader,status,format,MajorityClassSize,MaxNominalAttDistinctValues,MinorityClassSize,NumberOfClasses,NumberOfFeatures,NumberOfInstances,NumberOfInstancesWithMissingValues,NumberOfMissingValues,NumberOfNumericFeatures,NumberOfSymbolicFeatures\n')
+
+    # Filter dataset list
+    dataset_list = dataset_extraction(args, dataset_list, extraction_log_filepath)
+    if len(dataset_list) == 0:
+        print('No dataset was found that meets the conditions')
+        return
+
+    if args.n_selected_datasets == -1:
+        # If n_selected_datasets is not specified, use all datasets
+        selected_datasets = dataset_list
+    else:
+        n_selected_datasets = int(args.n_selected_datasets) if args.openml_id is None else 1
+        selected_datasets = dataset_list.sample(n_selected_datasets, random_state=args.seed)
 
     for openml_id in selected_datasets['did']:
         print(f'Generating missing values for OpenML ID: {openml_id}')
@@ -73,10 +107,15 @@ def main():
         # Load complete dataset
         X_original_filepath = openml_dirpath / f'{openml_id}/X.csv'
         X_original = pd.read_csv(X_original_filepath)
+        
+        # Load category dictionary
+        X_categories_filepath = openml_dirpath / f'{openml_id}/X_categories.json'
+        with open(X_categories_filepath, 'r') as f:
+            X_categories = json.load(f)
 
         # create list of categorical and numerical columns (names)
-        X_categorical_columns = X_original.select_dtypes(exclude=np.number).columns.tolist()
-        X_numerical_columns = X_original.select_dtypes(include=np.number).columns.tolist()
+        X_categorical_columns = list(X_categories.keys())
+        X_numerical_columns = list(set(X_original.columns.tolist()) - set(X_categorical_columns))
 
         columns = X_original.columns.tolist()
         if args.column_type == ['categorical']:

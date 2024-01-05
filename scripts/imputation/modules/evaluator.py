@@ -4,21 +4,21 @@ import pandas as pd
 
 
 class ImputationEvaluator:
-    def __init__(self):
-        return
-
-    def evaluate(self, X_original: pd.DataFrame, X_incomplete: pd.DataFrame, X_imputed: pd.DataFrame):
+    def __init__(self, X_original: pd.DataFrame, X_incomplete: pd.DataFrame, X_imputed: pd.DataFrame, X_categories: dict):
         self.X_original = X_original.copy()
         self.X_incomplete = X_incomplete.copy()
         self.X_imputed = X_imputed.copy()
+        self.X_categories = X_categories.copy()
+        return
 
+    def evaluate(self):
         rmse_results = self.__rmse__()
         macro_f1_results = self.__macro_f1__()
 
         return rmse_results, macro_f1_results
 
     def __rmse__(self):
-        X_numerical_columns = self.X_imputed.select_dtypes(include=np.number).columns
+        X_numerical_columns = list(set(self.X_original.columns) - set(self.X_categories.keys()))
         X_missing_index = self.X_incomplete[X_numerical_columns].isna().any(axis=1)
         X_original_numerical = self.X_original[X_numerical_columns].loc[X_missing_index]
         X_imputed_numerical = self.X_imputed[X_numerical_columns].loc[X_missing_index]
@@ -33,7 +33,7 @@ class ImputationEvaluator:
         return rmse_results
 
     def __macro_f1__(self):
-        X_categorical_columns = self.X_imputed.select_dtypes(exclude=np.number).columns
+        X_categorical_columns = self.X_categories.keys()
         X_missing_index = self.X_incomplete[X_categorical_columns].isna().any(axis=1)
         X_original_categorical = self.X_original[X_categorical_columns].loc[X_missing_index]
         X_imputed_categorical = self.X_imputed[X_categorical_columns].loc[X_missing_index]

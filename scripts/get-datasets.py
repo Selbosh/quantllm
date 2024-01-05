@@ -2,7 +2,7 @@ from sklearn.datasets import fetch_openml
 from pathlib import Path
 import pandas as pd
 import openml
-import sys
+import json
 
 openml.config.apikey = 'f44f61a5ad260b7dc3a501de448e47ce'
 
@@ -17,9 +17,6 @@ else:
     datasets = openml.datasets.list_datasets(tag='OpenML-CC18', output_format='dataframe')
     datasets.to_csv(to_save, index=False)
 
-print(datasets)
-
-
 for _, row in datasets.iterrows():
     did = int(row['did'])
     if all(map(lambda x: Path(folder / f'{did}/{x}.csv').exists(), ['X', 'y'])):
@@ -27,17 +24,25 @@ for _, row in datasets.iterrows():
         y = pd.read_csv(folder / f'{did}/y.csv')
     else:
         Path(folder / f'{did}/').mkdir(exist_ok=True, parents=True)
-        data = fetch_openml(data_id=did, return_X_y=False, as_frame=True, parser='auto')
-        X, y, description = data['data'], data['target'], data['DESCR']
+        X, y = fetch_openml(data_id=did, return_X_y=True, as_frame=True, parser='auto')
         X.to_csv(folder / f'{did}/X.csv', index=False)
         y.to_csv(folder / f'{did}/y.csv', index=False)
+        data = fetch_openml(data_id=did, return_X_y=False, as_frame=False, parser='auto')
+        description, categories, details = data['DESCR'], data['categories'], data['details']
         with open(folder / f'{did}/description.txt', 'w') as f:
             f.write(str(description))
+        if categories is not None:
+            X_categories = categories.copy()
+            y_categories = {y.name: X_categories.pop(y.name, [])}
+            with open(folder / f'{did}/X_categories.json', 'w') as f:
+                json.dump(X_categories, f, ensure_ascii=False, indent=2)
+            with open(folder / f'{did}/y_categories.json', 'w') as f:
+                json.dump(y_categories, f, ensure_ascii=False, indent=2)
+        with open(folder / f'{did}/details.json', mode="wt", encoding="utf-8") as f:
+	        json.dump(details, f, ensure_ascii=False, indent=2)
 
     dataset = openml.datasets.get_dataset(did, download_data=True, download_qualities=True, download_features_meta_data=True)
 
-    print(dataset)
-    print(dataset.description)
     for k, v in dataset.features.items():
         missing = f"{v.number_missing_values} missing values" if v.number_missing_values else ""
         print(f"{v.name} ({v.data_type}), {v.nominal_values} {missing}")

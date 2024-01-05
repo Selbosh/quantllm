@@ -4,16 +4,20 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, IterativeImputer
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from missforest.missforest import MissForest
 from sklearn.preprocessing import OrdinalEncoder
 
 
 class MeanModeImputer():
-    def __init__(self, na_value=np.nan):
+    def __init__(self, na_value=np.nan, X_categories: dict = {}):
         self.na_value = na_value
+        self.X_categories = X_categories
 
     def fit_transform(self, X: pd.DataFrame):
-        X_numerical, X_categorical = X.select_dtypes(include=np.number), X.select_dtypes(exclude=np.number)
-        X_original_columns, X_numerical_columns, X_categorical_columns = X.columns, X_numerical.columns, X_categorical.columns
+        X_original_columns = X.columns
+        X_categorical_columns = self.X_categories.keys()
+        X_numerical_columns = list(set(X_original_columns) - set(X_categorical_columns))
+        X_numerical, X_categorical = X[X_numerical_columns], X[X_categorical_columns]
 
         if X_numerical.shape[1] > 0:
             imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
@@ -36,13 +40,16 @@ class MeanModeImputer():
 
 
 class KNNImputer():
-    def __init__(self, na_value=np.nan, n_jobs: int | None = None):
+    def __init__(self, na_value=np.nan, n_jobs: int | None = None, X_categories: dict = {}):
         self.na_value = na_value
         self.n_jobs = n_jobs
+        self.X_categories = X_categories
 
     def fit_transform(self, X: pd.DataFrame):
-        X_numerical, X_categorical = X.select_dtypes(include=np.number), X.select_dtypes(exclude=np.number)
-        X_original_columns, X_numerical_columns, X_categorical_columns = X.columns, X_numerical.columns, X_categorical.columns
+        X_original_columns = X.columns
+        X_categorical_columns = self.X_categories.keys()
+        X_numerical_columns = list(set(X_original_columns) - set(X_categorical_columns))
+        X_numerical, X_categorical = X[X_numerical_columns], X[X_categorical_columns]
 
         if X_numerical.shape[1] > 0:
             knn = KNeighborsRegressor(n_neighbors=5, weights='distance', n_jobs=self.n_jobs)
@@ -70,16 +77,19 @@ class KNNImputer():
 
 
 class RandomForestImputer():
-    def __init__(self, na_value=np.nan, n_jobs: int | None = None):
+    def __init__(self, na_value=np.nan, n_jobs: int | None = None, X_categories: dict = {}):
         self.na_value = na_value
         self.n_jobs = n_jobs
+        self.X_categories = X_categories
 
     def fit_transform(self, X: pd.DataFrame):
         # Original paper: "MissForest—non-parametric missing value imputation for mixed-type data"
         # https://academic.oup.com/bioinformatics/article/28/1/112/219101
 
-        X_numerical, X_categorical = X.select_dtypes(include=np.number), X.select_dtypes(exclude=np.number)
-        X_original_columns, X_numerical_columns, X_categorical_columns = X.columns, X_numerical.columns, X_categorical.columns
+        X_original_columns = X.columns
+        X_categorical_columns = self.X_categories.keys()
+        X_numerical_columns = list(set(X_original_columns) - set(X_categorical_columns))
+        X_numerical, X_categorical = X[X_numerical_columns], X[X_categorical_columns]
 
         if X_numerical.shape[1] > 0:
             rf = RandomForestRegressor(n_estimators=100, n_jobs=self.n_jobs)
@@ -102,5 +112,29 @@ class RandomForestImputer():
             X_imputed = X_numerical_imputed
         else:
             X_imputed = X_categorical_imputed
+
+        return X_imputed
+
+
+class MissForestImputer():
+    def __init__(self, na_value=np.nan, n_jobs: int | None = None, X_categories: dict = {}):
+        self.na_value = na_value
+        self.n_jobs = n_jobs
+        self.X_categories = X_categories
+
+    def fit_transform(self, X: pd.DataFrame):
+        # Original paper: "MissForest—non-parametric missing value imputation for mixed-type data"
+        # https://academic.oup.com/bioinformatics/article/28/1/112/219101
+        
+        X_categorical_columns = self.X_categories.keys()
+
+        clf = RandomForestClassifier(n_estimators=100, n_jobs=self.n_jobs)
+        rgr = RandomForestRegressor(n_estimators=100, n_jobs=self.n_jobs)
+        mf = MissForest(clf, rgr)
+        
+        if len(X_categorical_columns) > 0:
+            X_imputed = mf.fit_transform(X, X_categorical_columns)
+        else:
+            X_imputed = mf.fit_transform(X)
 
         return X_imputed
