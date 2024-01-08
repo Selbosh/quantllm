@@ -16,6 +16,22 @@ def load_dataset_list(openml_dir: Path):
 
 
 def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, extraction_log_filepath: Path):
+    """
+    Extracts datasets based on specified criteria.
+    
+    Extraction criteria:
+        - The number of missing values is 0.
+        - The number of samples is less than 50,000.
+
+    Args:
+        args (argparse.Namespace): The command line arguments.
+        dataset_list (pd.DataFrame): The list of datasets.
+        extraction_log_filepath (Path): The filepath to the extraction log.
+
+    Returns:
+        pd.DataFrame: The extracted datasets.
+    """
+    
     candidate_datasets = dataset_list.copy()
     
     # Extract datasets that have no missing values
@@ -24,22 +40,15 @@ def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, ext
         f.write(','.join(removed_datasets.columns.tolist()) + '\n')
         for _, row in removed_datasets.iterrows():
             f.write(','.join(map(str, row.tolist())) + '\n')
-
     candidate_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] == 0.0]
     
-    # Extract datasets which samples are less than 50000
+    # Extract datasets which samples are less than 50,000
     with open(extraction_log_filepath, 'a') as f:
         removed_datasets = candidate_datasets[candidate_datasets['NumberOfInstances'] > 50000.0]
         f.write(','.join(removed_datasets.columns.tolist()) + '\n')
         for _, row in removed_datasets.iterrows():
             f.write(','.join(map(str, row.tolist())) + '\n')
-
-    
     candidate_datasets = candidate_datasets[candidate_datasets['NumberOfInstances'] < 50000.0]
-    
-    if args.openml_id is not None:
-        # If openml_id is specified, return the dataset with the given openml_id
-        candidate_datasets = candidate_datasets[candidate_datasets['did'] == args.openml_id]
     
     if 'categorical' in args.column_type and 'numerical' in args.column_type and args.n_corrupted_columns == 1:
         return candidate_datasets
@@ -56,17 +65,20 @@ def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, ext
     return candidate_datasets
 
 
-def main():
-    # Load arguments
+def config_args():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--openml_id', type=int, default=None)
-    argparser.add_argument('--n_selected_datasets', type=int, default=-1)
     argparser.add_argument('--n_corrupted_rows', nargs='*', type=int, default=[50, 100, 150])
     argparser.add_argument('--n_corrupted_columns', type=int, default=1)
     argparser.add_argument('--column_type', nargs='*', type=str, default=['categorical', 'numerical'])
     argparser.add_argument('--seed', type=int, default=42)
     args = argparser.parse_args()
+    return args
 
+
+def main():
+    args = config_args()
+
+    # Set random seed. This is used to select datasets and columns to be corrupted.
     np.random.seed(args.seed)
     
     data_dirpath = Path(__file__).parents[2] / 'data'
@@ -75,31 +87,23 @@ def main():
     openml_dirpath = data_dirpath / 'openml'
     dataset_list = load_dataset_list(openml_dirpath)
     
+    # Set paths to save incomplete datasets and logs
     incomplete_dirpath = data_dirpath / 'working/incomplete/'
     incomplete_dirpath.mkdir(parents=True, exist_ok=True)
-    log_filepath = incomplete_dirpath / 'logs.csv'
-    extraction_log_filepath = incomplete_dirpath / 'extraction_logs.csv'
-
+    log_filepath = incomplete_dirpath / 'logs.csv' # log of incomplete datasets
     if not log_filepath.exists():
         with open(log_filepath, 'w') as f:
             f.write('openml_id,NumberOfInstancesWithMissingValues,missing_column_name,missing_column_type,missingness\n')
-            
+    extraction_log_filepath = incomplete_dirpath / 'extraction_logs.csv' # this log is used to check which datasets are removed by the extraction process
     if not extraction_log_filepath.exists():
         with open(extraction_log_filepath, 'w') as f:
             f.write('did,name,version,uploader,status,format,MajorityClassSize,MaxNominalAttDistinctValues,MinorityClassSize,NumberOfClasses,NumberOfFeatures,NumberOfInstances,NumberOfInstancesWithMissingValues,NumberOfMissingValues,NumberOfNumericFeatures,NumberOfSymbolicFeatures\n')
 
-    # Filter dataset list
-    dataset_list = dataset_extraction(args, dataset_list, extraction_log_filepath)
-    if len(dataset_list) == 0:
+    # List datasets that meet the conditions
+    selected_datasets = dataset_extraction(args, dataset_list, extraction_log_filepath)
+    if len(selected_datasets) == 0:
         print('No dataset was found that meets the conditions')
         return
-
-    if args.n_selected_datasets == -1:
-        # If n_selected_datasets is not specified, use all datasets
-        selected_datasets = dataset_list
-    else:
-        n_selected_datasets = int(args.n_selected_datasets) if args.openml_id is None else 1
-        selected_datasets = dataset_list.sample(n_selected_datasets, random_state=args.seed)
 
     for openml_id in selected_datasets['did']:
         print(f'Generating missing values for OpenML ID: {openml_id}')

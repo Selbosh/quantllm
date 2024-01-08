@@ -36,10 +36,11 @@ def experiment(args: argparse.Namespace, openml_id: int, X_original_filepath: Pa
     elif args.method == 'rf':
         imputer = MissForestImputer(n_jobs=-1, X_categories=X_categories)
     elif args.method == 'llm':
+        data_dirpath = Path(__file__).parents[2] / 'data'
         openml_dirpath = data_dirpath / 'openml'
         description_file = openml_dirpath / f'{openml_id}/description.txt'
         description = description_file.read_text()
-        imputer = LLMImputer(dataset_description=description)
+        imputer = LLMImputer(X_categories=X_categories, dataset_description=description)
 
     # Run imputation
     X_imputed = imputer.fit_transform(X_incomplete)
@@ -64,8 +65,7 @@ def experiment(args: argparse.Namespace, openml_id: int, X_original_filepath: Pa
     return
 
 
-def main():
-    # Arguments
+def config_args():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--method', type=str, default='meanmode')
     argparser.add_argument('--debug', action='store_true')
@@ -73,27 +73,32 @@ def main():
     argparser.add_argument('--X_incomplete_filename', type=str, default=None)
     argparser.add_argument('--evaluate', action='store_true')
     args = argparser.parse_args()
+    return args
+
+
+def main():
+    args = config_args()
     
     data_dirpath = Path(__file__).parents[2] / 'data'
 
+    # Set path to save imputed data and results
     output_dirpath = data_dirpath / f'output/imputation/{args.method}'
     output_dirpath.mkdir(parents=True, exist_ok=True)
-    
-    timestamp = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    results_filepath = output_dirpath / f'results_{timestamp}.csv'
 
     if args.evaluate:
+        timestamp = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        results_filepath = output_dirpath / f'results_{timestamp}.csv'
         with open(results_filepath, 'w') as f:
             f.write('timestamp,method,openml_id,missing_column,n_missing_values,missingness,rmse,macro_f1\n')
 
-    # load incomplete data
+    # Load incomplete data
     incomplete_dirpath = data_dirpath / 'working/incomplete'
     incomplete_log_filepath = incomplete_dirpath / 'logs.csv'
 
-    # path to original (complete) opanml datasets
+    # Set path to original (complete) opanml datasets
     openml_dirpath = data_dirpath / 'openml'
 
-    # run experiment for a specific dataset
+    # Run experiment for a specific dataset
     if args.openml_id is not None and args.X_incomplete_filename is not None:
         openml_id = args.openml_id
 
@@ -107,7 +112,7 @@ def main():
         experiment(args, openml_id, X_original_filepath, X_incomplete_filepath, X_imputed_filepath, X_categories_filepath, results_filepath)
         return
 
-    # run experiment for each dataset
+    # Run experiment for all incomplete datasets
     with open(incomplete_log_filepath, 'r') as f:
         lines = f.readlines()
 
@@ -128,7 +133,6 @@ def main():
             X_categories_filepath = openml_dirpath / f'{openml_id}/X_categories.json'
 
             experiment(args, openml_id, X_original_filepath, X_incomplete_filepath, X_imputed_filepath, X_categories_filepath, results_filepath)
-
     return
 
 

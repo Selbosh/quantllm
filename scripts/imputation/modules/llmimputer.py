@@ -7,24 +7,27 @@ from openai import OpenAI
 
 
 class LLMImputer():
-    def __init__(self, na_value=np.nan, dataset_description: str = None):
+    def __init__(self, na_value=np.nan, X_categories: dict = {}, dataset_description: str = None):
         self.na_value = na_value
+        self.X_categories = X_categories
         self.dataset_description = dataset_description
+        
         load_dotenv()
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 
     def generate_dataset_variables_description(self, X: pd.DataFrame):
         """
         Generate dataset variables description from dataset
         """
-        X_columns = X.columns
-        X_numerical_columns = X.select_dtypes(include=np.number).columns
-        X_categorical_columns = X.select_dtypes(exclude=np.number).columns
-        X_missing_columns = X.columns[X.isna().any()].tolist()
+        X_original_columns = X.columns
+        X_categorical_columns = self.X_categories.keys()
+        X_numerical_columns = list(set(X_original_columns) - set(X_categorical_columns))
+        X_missing_columns = X_original_columns[X.isna().any()].tolist()
 
         dataset_variables_description = "Variable Name\tRole\tType\tDescription\tCandidates\tMissing Values\r\n"
 
-        for column in X_columns:
+        for column in X_original_columns:
             if column in X_numerical_columns:
                 role = "Feature"
                 variable_type = "Numerical"
@@ -49,10 +52,9 @@ class LLMImputer():
                 missing_values = "yes"
 
             dataset_variables_description += f"{column}\t{role}\t{variable_type}\t{description}\t{candidates}\t{missing_values}\r\n"
-            
-        print(dataset_variables_description)
 
         return dataset_variables_description
+
 
     def fit_transform(self, X: pd.DataFrame):
         X_copy = X.copy()
@@ -65,6 +67,7 @@ class LLMImputer():
         X_copy = X_copy.apply(lambda x: self.data_imputation(x, dataset_variable_description, epi_prompt) if x.isna().sum() > 0 else x, axis=1)
 
         return X_copy
+
 
     def __gpt_api_call__(self, model, system_prompt, user_prompt, temperature=0.2, max_tokens=256, frequency_penalty=0.0):
         """
@@ -107,6 +110,7 @@ class LLMImputer():
                 time.sleep(2)
                 self.__gpt_api_call__(model, system_prompt, user_prompt, temperature, max_tokens, frequency_penalty)
 
+
     def expert_prompt_initialization(self, dataset_description: str):
         """
         Expert Prompt Initialization (EPI) module
@@ -132,9 +136,13 @@ class LLMImputer():
         epi_max_tokens = 2048
 
         epi_prompt = self.__gpt_api_call__(model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
-        print(epi_prompt)
+        
+        if epi_prompt == None or epi_prompt == "":
+            self.expert_prompt_initialization(dataset_description)
+            return
 
         return epi_prompt
+
 
     def data_imputation(self, X_row: pd.Series, dataset_variables_description: str, epi_prompt: str):
         """

@@ -15,37 +15,43 @@ For missing packages, use `poetry add <package name>` (see [poetry docs](https:/
 
 ## Get data
 
-```
+You can get OpenML-CC18 Curated Classification benchmark datasets and download them locally. The downloaded data will be stored in `/data/openml`. For each dataset, the following files will be downloaded.
+- `X.csv` : the feature matrix
+- `y.csv` : the classification labels
+- `X_categories.json` : a list of categorical variables in the features
+- `y_categories.json` : a list of class in `y.csv`
+- `description.txt` : the description of the dataset written in OpenML
+- `details.json` : a meta data of the dataset
+
+```bash
 poetry run python scripts/get-datasets.py 
 ```
 
 ## Missing values imputation
 
-For this task, we will use a customised version of [Jenga](https://github.com/schelterlabs/jenga) placed in `scripts/jenga`.
-
 ### Generate missing values from complete datasets
 
-You can generate missing values for data stored in `/data/openml`. The generated data will be output in `/data/working/incomplete`.
+You can generate missing values for data stored in `/data/openml`. The generated data will be stored in `/data/working/incomplete`.
 
 ```bash
 poetry run python scripts/imputation/generate-missing-values.py
 ```
 
 ```bash
-poetry run python scripts/imputation/generate-missing-values.py 
-  [--openml_id OPENML_ID] [--n_selected_datasets N_SELECTED_DATASETS] 
+poetry run python scripts/imputation/generate-missing-values.py
   [--n_corrupted_rows N_CORRUPTED_ROWS] 
   [--n_corrupted_columns N_CORRUPTED_COLUMNS] 
   [--column_type {categorical numerical, categorical, numerical}]
   [--seed SEED]
 
+required arguments:
+  (none)
+
 optional arguments:
-  --openml_id             you can run for a specific dataset
-  --n_selected_datasets   if missing, the code will generate missing values for all datasets
   --n_corrupted_rows      the default values are [100, 300, 500]
   --n_corrupted_columns   the default value is 1
   --column_type           you can specify target column type
-  --seed
+  --seed                  default value: 42
 ```
 
 ### Missing values imputation using LLMs
@@ -65,15 +71,33 @@ The following methods are available:
 - Random Forest
 - LLM (GPT-4)
 
+Note:
+- Please run `generate-missing-values.py` (see above) in advance. Incomplete datasets and `log.csv` is required to run.
+
+For example, if you want to impute with Mean/Mode method, run the following command.
+```bash
+poetry run python scripts/imputation/experiment.py --method meanmode --debug --evaluate
+```
+
+If you don't want to run experiments for a specific dataset, please give the OpenML ID and the filename of the incomplete data. For example,
+```bash
+poetry run python scripts/imputation/experiment.py --method meanmode --debug --openml_id 31 --X_incomplete_filename "X_['personal_status']_50-MAR.csv" --evaluate
+```
+
 ```bash
 poetry run python scripts/imputation/experiment.py 
   [--method {meanmode, knn, rf, llm}] [--debug] 
   [--openml_id OPENML_ID] [--X_incomplete_filename FILENAME]
+  [--evaluate]
+
+required arguments:
+  --method                  select a imputation method you want to apply (default value: meanmode)
 
 optional arguments:
-  --debug
-  --openml_id
-  --X_incomplete_filename
+  --debug                   display some additional logs to the terminal
+  --openml_id               specify a target openml id
+  --X_incomplete_filename   specify a incomplete filename
+  --evaluate                calculate RMSE or Macro F1
 ```
 
 ## Getting started
