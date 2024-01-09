@@ -112,17 +112,18 @@ def main():
         raise ValueError('When --X_incomplete_filename is specified, --openml_id must also be specified.')
     
     if args.openml_id is not None and args.X_incomplete_filename is not None:
-        for train_or_test in ['train', 'test']:
-            X_complete_filepath = complete_dirpath / f'{args.openml_id}/X_{train_or_test}.csv'
-            X_incomplete_filepath = incomplete_dirpath / f'{args.openml_id}/{args.X_incomplete_filename}'
-            X_imputed_dirpath = output_dirpath / f'imputed_data/{args.openml_id}'
-            X_imputed_dirpath.mkdir(parents=True, exist_ok=True)
-            X_imputed_filepath = X_imputed_dirpath / f'X_{train_or_test}_{args.X_incomplete_filename}'
-            X_categories_filepath = openml_dirpath / f'{args.openml_id}/X_categories.json'
+        train_or_test = args.X_incomplete_filename.split('_')[1]
+        X_complete_filepath = complete_dirpath / f'{args.openml_id}/X_{train_or_test}.csv'
+        X_incomplete_filepath = incomplete_dirpath / f'{args.openml_id}/{args.X_incomplete_filename}'
+        X_imputed_dirpath = output_dirpath / f'imputed_data/{args.openml_id}'
+        X_imputed_dirpath.mkdir(parents=True, exist_ok=True)
+        X_imputed_filepath = X_imputed_dirpath / f'{args.X_incomplete_filename}'
+        X_categories_filepath = openml_dirpath / f'{args.openml_id}/X_categories.json'
 
-            experiment(
-                args, args.openml_id, train_or_test, X_complete_filepath, X_incomplete_filepath, X_imputed_filepath, X_categories_filepath, results_filepath
-            )
+        experiment(
+            args, args.openml_id, train_or_test, X_complete_filepath, X_incomplete_filepath, X_imputed_filepath, X_categories_filepath, results_filepath
+        )
+        return
 
     with open(incomplete_log_filepath, 'r') as f:
         lines = f.readlines()
