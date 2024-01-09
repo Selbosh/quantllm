@@ -29,32 +29,7 @@ poetry run python scripts/get-datasets.py
 
 ## Missing values imputation
 
-### Generate missing values from complete datasets
-
-You can generate missing values for data stored in `/data/openml`. The generated data will be stored in `/data/working/incomplete`.
-
-```bash
-poetry run python scripts/imputation/generate-missing-values.py
-```
-
-```bash
-poetry run python scripts/imputation/generate-missing-values.py
-  [--n_corrupted_rows N_CORRUPTED_ROWS] 
-  [--n_corrupted_columns N_CORRUPTED_COLUMNS] 
-  [--column_type {categorical numerical, categorical, numerical}]
-  [--seed SEED]
-
-required arguments:
-  (none)
-
-optional arguments:
-  --n_corrupted_rows      the default values are [100, 300, 500]
-  --n_corrupted_columns   the default value is 1
-  --column_type           you can specify target column type
-  --seed                  default value: 42
-```
-
-### Missing values imputation using LLMs
+### Setups
 
 To use LLM Imputer (`/scripts/imputation/modules/llmimputer.py`), please set your OpenAI API Key as an environmental variable.
 Create `/.env` as follows.
@@ -62,7 +37,37 @@ Create `/.env` as follows.
 OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
 ```
 
-### Experiment
+### Preprocess
+
+In the preprocessing step, you will split the original OpenML datasets into train and test subsets, and generate missing values.
+Please get OpenML datasets and store them in `/data/openml` in advance.
+The splitted complete datasets will be stored in `/data/working/complete`, and the incomplete datasets (datasets with missing values) will be stored in `/data/working/incomplete`.
+
+```bash
+poetry run python scripts/imputation/preprocess.py
+```
+
+```bash
+poetry run python scripts/imputation/preprocess.py
+  [--n_corrupted_rows N_CORRUPTED_ROWS] 
+  [--n_corrupted_columns N_CORRUPTED_COLUMNS] 
+  [--column_type {['categorical', 'numerical'], ['categorical'], ['numerical']}]
+  [--seed SEED]
+
+required arguments:
+  (none)
+
+optional arguments:
+  --n_corrupted_rows_train  the default values are [40, 80, 120]
+  --n_corrupted_rows_test   the default values are [10, 20, 30]
+  --n_corrupted_columns     the default value is 1
+  --column_type             you can specify target column type (default value: ['categorical', 'numerical'])
+  --seed                    default value: 42
+```
+
+### Experiment　1 - Imputation
+
+(Note) Please run `generate-missing-values.py` (see above) in advance. Incomplete datasets and `log.csv` is required to run.
 
 You can test multiple missing values imputation methods for the generated incomplete datasets.
 The following methods are available:
@@ -71,9 +76,6 @@ The following methods are available:
 - Random Forest
 - LLM (GPT-4)
 
-Note:
-- Please run `generate-missing-values.py` (see above) in advance. Incomplete datasets and `log.csv` is required to run.
-
 For example, if you want to impute with Mean/Mode method, run the following command.
 ```bash
 poetry run python scripts/imputation/experiment.py --method meanmode --debug --evaluate
@@ -81,12 +83,12 @@ poetry run python scripts/imputation/experiment.py --method meanmode --debug --e
 
 If you don't want to run experiments for a specific dataset, please give the OpenML ID and the filename of the incomplete data. For example,
 ```bash
-poetry run python scripts/imputation/experiment.py --method meanmode --debug --openml_id 31 --X_incomplete_filename "X_['personal_status']_50-MAR.csv" --evaluate
+poetry run python scripts/imputation/experiment.py --method meanmode --debug --openml_id 31 --X_incomplete_filename "X_train_['personal_status']_50-MAR.csv" --evaluate
 ```
 
 ```bash
-poetry run python scripts/imputation/experiment.py 
-  [--method {meanmode, knn, rf, llm}] [--debug] 
+poetry run python scripts/imputation/experiment.py
+  [--method {meanmode, knn, rf, llm}] [--debug]
   [--openml_id OPENML_ID] [--X_incomplete_filename FILENAME]
   [--evaluate]
 
@@ -99,6 +101,10 @@ optional arguments:
   --X_incomplete_filename   specify a incomplete filename
   --evaluate                calculate RMSE or Macro F1
 ```
+
+### Experiment　2 - Downstream task
+
+ToDo
 
 ## Getting started
 

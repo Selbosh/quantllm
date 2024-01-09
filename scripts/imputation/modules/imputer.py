@@ -21,12 +21,12 @@ class MeanModeImputer():
 
         if X_numerical.shape[1] > 0:
             imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
-            X_numerical_imputed = imputer.fit_transform(X_numerical.to_numpy())
+            X_numerical_imputed = imputer.fit_transform(X_numerical)
             X_numerical_imputed = pd.DataFrame(X_numerical_imputed, columns=X_numerical_columns)
 
         if X_categorical.shape[1] > 0:
             imputer = SimpleImputer(missing_values=np.nan, strategy='most_frequent')
-            X_categorical_imputed = imputer.fit_transform(X_categorical.to_numpy())
+            X_categorical_imputed = imputer.fit_transform(X_categorical)
             X_categorical_imputed = pd.DataFrame(X_categorical_imputed, columns=X_categorical_columns)
 
         if X_numerical.shape[1] > 0 and X_categorical.shape[1] > 0:
