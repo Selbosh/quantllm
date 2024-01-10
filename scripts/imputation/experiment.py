@@ -31,12 +31,12 @@ def imputation_experiment(args: argparse.Namespace, openml_id: int, train_or_tes
     if args.debug:
         print(f'Imputing OpenML Id: {openml_id}, Train/Test: {train_or_test}, Method: {args.method}')
 
-    # Load data
-    X_complete = pd.read_csv(X_complete_filepath, header=0)
-    X_incomplete = pd.read_csv(X_incomplete_filepath, header=0)
-
     with open(X_categories_filepath, 'r') as f:
         X_categories = json.load(f)
+    
+    # Load data
+    X_complete = pd.read_csv(X_complete_filepath, header=0, dtype={column: str for column in X_categories.keys()})
+    X_incomplete = pd.read_csv(X_incomplete_filepath, header=0, dtype={column: str for column in X_categories.keys()})
 
     n_missing_values = X_incomplete.isna().sum().sum()
     missing_columns = X_incomplete.columns[X_incomplete.isna().any()].tolist()
@@ -76,8 +76,8 @@ def imputation_experiment(args: argparse.Namespace, openml_id: int, train_or_tes
             print('')
 
         with open(results_filepath, 'a') as f:
-            missing_columns = f'\"{missing_columns}\"'
-            f.write(f'{timestamp},{args.method},{openml_id},{train_or_test},{missing_columns},{n_missing_values},{missingness},{rmse},{macro_f1}\n')
+            # missing_columns = f'\"{missing_columns}\"'
+            f.write(f'{timestamp},{args.method},{openml_id},{train_or_test},{list(missing_columns.keys())[0]},{list(missing_columns.values())[0]},{n_missing_values},{missingness},{rmse},{macro_f1}\n')
 
     return
 
@@ -88,30 +88,30 @@ def downstream_experiment(args: argparse.Namespace, openml_id: int, missingness:
     if args.debug:
         print(f'Imputing OpenML Id: {openml_id}')
 
-    # Load data
-    X_train = pd.read_csv(X_train_filepath, header=0)
-    X_test = pd.read_csv(X_test_filepath, header=0)
-    y_train = pd.read_csv(y_train_filepath, header=0, keep_default_na=False, na_values=[''])
-    y_test = pd.read_csv(y_test_filepath, header=0, keep_default_na=False, na_values=[''])
-    X_incomplete = pd.read_csv(X_incomplete_filepath, header=0)
-    
     with open(X_categories_filepath, 'r') as f:
         X_categories = json.load(f)
 
+    # Load data
+    X_train = pd.read_csv(X_train_filepath, header=0, dtype={column: str for column in X_categories.keys()})
+    X_test = pd.read_csv(X_test_filepath, header=0, dtype={column: str for column in X_categories.keys()})
+    y_train = pd.read_csv(y_train_filepath, header=0, keep_default_na=False, na_values=[''])
+    y_test = pd.read_csv(y_test_filepath, header=0, keep_default_na=False, na_values=[''])
+    X_incomplete = pd.read_csv(X_incomplete_filepath, header=0)
+
     categories = [X_categories[column] for column in X_train.columns if column in X_categories.keys()]
 
-    n_missing_values = X_incomplete.isna().sum().sum()
     missing_columns = X_incomplete.columns[X_incomplete.isna().any()].tolist()
     missing_columns = {column: ('categorical' if column in X_categories.keys() else 'numerical') for column in missing_columns}
 
     # encode categorical features
     categorical_features = X_categories.keys()
-    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', categories=categories)
-    encoder.fit(X_train[categorical_features])
-    X_train = pd.concat([X_train.drop(categorical_features, axis=1), pd.DataFrame(encoder.transform(X_train[categorical_features]))], axis=1)
-    X_test = pd.concat([X_test.drop(categorical_features, axis=1), pd.DataFrame(encoder.transform(X_test[categorical_features]))], axis=1)
-    X_train.columns = X_train.columns.astype(str)
-    X_test.columns = X_test.columns.astype(str)
+    if len(categorical_features) > 0:
+        encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', categories=categories)
+        encoder.fit(X_train[categorical_features])
+        X_train = pd.concat([X_train.drop(categorical_features, axis=1), pd.DataFrame(encoder.transform(X_train[categorical_features]))], axis=1)
+        X_test = pd.concat([X_test.drop(categorical_features, axis=1), pd.DataFrame(encoder.transform(X_test[categorical_features]))], axis=1)
+        X_train.columns = X_train.columns.astype(str)
+        X_test.columns = X_test.columns.astype(str)
 
     # Train
     clf = RandomForestClassifier(random_state=args.seed)
@@ -121,8 +121,7 @@ def downstream_experiment(args: argparse.Namespace, openml_id: int, missingness:
     score = clf.score(X_test, y_test.values.ravel())
     
     with open(results_filepath, 'a') as f:
-        missing_columns = f'\"{missing_columns}\"'
-        f.write(f'{timestamp},{args.method},{openml_id},{missing_columns},{n_missing_values},{missingness},{score}\n')
+        f.write(f'{timestamp},{args.method},{openml_id},{list(missing_columns.keys())[0]},{list(missing_columns.values())[0]},{missingness},{score}\n')
 
 
 def config_args():
@@ -152,10 +151,10 @@ def main():
     downstream_results_filepath = output_dirpath / f'downstream_{timestamp}.csv'
     if args.evaluate:
         with open(imputation_results_filepath, 'w') as f:
-            f.write('timestamp,method,openml_id,train_or_test,missing_column,n_missing_values,missingness,rmse,macro_f1\n')
+            f.write('timestamp,method,openml_id,train_or_test,missing_column_name,missing_column_type,n_missing_values,missingness,rmse,macro_f1\n')
     if args.downstream:
         with open(downstream_results_filepath, 'w') as f:
-            f.write('timestamp,method,openml_id,missing_column,n_missing_values,missingness,score\n')
+            f.write('timestamp,method,openml_id,missing_column_name,missing_column_type,missingness,score\n')
 
     openml_dirpath = data_dirpath / 'openml'
     working_dirpath = data_dirpath / 'working'
@@ -166,19 +165,24 @@ def main():
     incomplete_log_filepath = incomplete_dirpath / 'logs.csv'
     incomplete_log = pd.read_csv(incomplete_log_filepath, header=0)
     
-    incomplete_log = incomplete_log.drop('train_or_test', axis=1).drop_duplicates()
+    incomplete_log = incomplete_log.drop('train_or_test', axis=1).drop('NumberOfInstancesWithMissingValues', axis=1).drop_duplicates()
 
     for log in tqdm(incomplete_log.itertuples()):
         openml_id, missingness = log.openml_id, log.missingness
-        
+
+        if args.openml_id is not None and args.openml_id != openml_id:
+            continue
+        elif args.missingness is not None and args.missingness != missingness:
+            continue
+
         X_complete_train_filepath = complete_dirpath / f'{openml_id}/X_train.csv'
         X_complete_test_filepath = complete_dirpath / f'{openml_id}/X_test.csv'
         y_train_filepath = complete_dirpath / f'{openml_id}/y_train.csv'
         y_test_filepath = complete_dirpath / f'{openml_id}/y_test.csv'
-        
+
         X_incomplete_train_filepath = incomplete_dirpath / f'{openml_id}/{missingness}/X_train.csv'
         X_incomplete_test_filepath = incomplete_dirpath / f'{openml_id}/{missingness}/X_test.csv'
-        
+
         X_imputed_train_filepath = imputed_dirpath / f'{openml_id}/{missingness}/X_train.csv'
         X_imputed_test_filepath = imputed_dirpath / f'{openml_id}/{missingness}/X_test.csv'
         X_imputed_train_filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -186,11 +190,6 @@ def main():
         
         X_categories_filepath = openml_dirpath / f'{openml_id}/X_categories.json'
 
-        if args.openml_id is not None and args.openml_id != openml_id:
-            continue
-        elif args.missingness is not None and args.missingness != missingness:
-            continue
-        
         imputation_experiment(
             args, openml_id, 'train', missingness, X_complete_train_filepath, X_incomplete_train_filepath, X_imputed_train_filepath, X_categories_filepath, imputation_results_filepath
         )

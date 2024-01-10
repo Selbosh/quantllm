@@ -4,6 +4,7 @@ import argparse
 import json
 import pandas as pd
 import numpy as np
+import random
 from sklearn.model_selection import train_test_split
 from modules.missingvalues import MissingValues
 
@@ -104,7 +105,7 @@ def process_datasets(args: argparse.Namespace, selected_datasets: pd.DataFrame, 
         with open(X_categories_filepath, 'r') as f:
             X_categories = json.load(f)
         X_categorical_columns = list(X_categories.keys())
-        X_numerical_columns = list(set(X_original.columns.tolist()) - set(X_categorical_columns))
+        X_numerical_columns = [column for column in X_original.columns.tolist() if column not in X_categorical_columns]
 
         X_train[X_categorical_columns] = X_train[X_categorical_columns].astype(str)
         X_test[X_categorical_columns] = X_test[X_categorical_columns].astype(str)
@@ -150,12 +151,9 @@ def select_column(args: argparse.Namespace, openml_id: int, X_categorical_column
             return []
         columns = X_numerical_columns
     else:
-        columns = list(set(X_categorical_columns + X_numerical_columns))
-    
-    np.random.seed(args.seed)
-    
-    # n_corrupted_columns = min(args.n_corrupted_columns, len(columns))
-    return np.random.choice(columns, 1, replace=False)[0]
+        columns = X_categorical_columns + X_numerical_columns
+
+    return np.random.choice(columns, size=None, replace=False)
 
 
 def generate_and_save_incomplete_datasets(args: argparse.Namespace, X: pd.DataFrame, train_or_test: str, target_column: str, target_column_type: str, openml_id: int, incomplete_dirpath: Path, log_filepath: Path):
@@ -206,6 +204,7 @@ def main():
 
     # Set random seed. This is used to select datasets and columns to be corrupted.
     np.random.seed(args.seed)
+    random.seed(args.seed)
     
     data_dirpath = Path(__file__).parents[2] / 'data'
 
