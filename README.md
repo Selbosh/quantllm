@@ -58,14 +58,14 @@ required arguments:
   (none)
 
 optional arguments:
-  --n_corrupted_rows_train  the default values are [40, 80, 120]
-  --n_corrupted_rows_test   the default values are [10, 20, 30]
+  --n_corrupted_rows_train  the default value is 120
+  --n_corrupted_rows_test   the default value is 30
   --n_corrupted_columns     the default value is 1
   --column_type             you can specify target column type (default value: ['categorical', 'numerical'])
   --seed                    default value: 42
 ```
 
-### Experiment　1 - Imputation
+### Experiment
 
 (Note) Please run `generate-missing-values.py` (see above) in advance. Incomplete datasets and `log.csv` is required to run.
 
@@ -81,15 +81,20 @@ For example, if you want to impute with Mean/Mode method, run the following comm
 poetry run python scripts/imputation/experiment.py --method meanmode --debug --evaluate
 ```
 
-If you don't want to run experiments for a specific dataset, please give the OpenML ID and the filename of the incomplete data. For example,
+If you want to run experiments for a specific dataset, please give the OpenML ID, missingness, train/test. For example,
 ```bash
-poetry run python scripts/imputation/experiment.py --method meanmode --debug --openml_id 31 --X_incomplete_filename "X_train_['personal_status']_50-MAR.csv" --evaluate
+poetry run python scripts/imputation/experiment.py --method meanmode --debug --openml_id 31 --missingness MCAR --train_or_test train --evaluate
+```
+
+You can also evaluate downstream tasks by adding the downstream flag.
+```bash
+poetry run python scripts/imputation/experiment.py --method meanmode --debug --evaluate
 ```
 
 ```bash
 poetry run python scripts/imputation/experiment.py
   [--method {meanmode, knn, rf, llm}] [--debug]
-  [--openml_id OPENML_ID] [--X_incomplete_filename FILENAME]
+  [--openml_id OPENML_ID] [--missingness {MCAR, MAR, MNAR}] [--train_or_test {train, test}]
   [--evaluate]
 
 required arguments:
@@ -98,13 +103,11 @@ required arguments:
 optional arguments:
   --debug                   display some additional logs to the terminal
   --openml_id               specify a target openml id
-  --X_incomplete_filename   specify a incomplete filename
+  --missingness             specify a missingness pattern (MCAR or MAR or MNAR)
+  --train_or_test           flag to specify subsets (train or test)
   --evaluate                calculate RMSE or Macro F1
+  --downstream              evaluate downstream tasks
 ```
-
-### Experiment　2 - Downstream task
-
-ToDo
 
 ## Getting started
 

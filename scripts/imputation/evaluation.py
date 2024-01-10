@@ -6,7 +6,7 @@ import json
 from modules.evaluator import ImputationEvaluator
 
 
-def evaluate(args: argparse.Namespace, openml_id: int, X_original_filepath: Path, X_incomplete_filepath: Path, X_imputed_filepath: Path, X_categories_filepath: Path, results_filepath: Path):
+def evaluate(args: argparse.Namespace, openml_id: int, train_or_test: str, X_original_filepath: Path, X_incomplete_filepath: Path, X_imputed_filepath: Path, X_categories_filepath: Path, results_filepath: Path):
     timestamp = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     if args.debug:
@@ -36,7 +36,7 @@ def evaluate(args: argparse.Namespace, openml_id: int, X_original_filepath: Path
 
     with open(results_filepath, 'a') as f:
         missing_columns, rmse, macro_f1 = f'\"{missing_columns}\"', f'\"{rmse}\"', f'\"{macro_f1}\"'
-        f.write(f'{timestamp},{args.method},{openml_id},{missing_columns},{n_missing_values},{missingness},{rmse},{macro_f1}\n')
+        f.write(f'{timestamp},{args.method},{openml_id},{train_or_test},{missing_columns},{n_missing_values},{missingness},{rmse},{macro_f1}\n')
 
     return
 
@@ -58,9 +58,9 @@ def main():
     results_filepath = output_dirpath / f'results_{timestamp}.csv'
 
     with open(results_filepath, 'w') as f:
-        f.write('timestamp,method,openml_id,missing_column,n_missing_values,missingness,rmse,macro_f1\n')
+        f.write('timestamp,method,openml_id,train_or_test,missing_column,n_missing_values,missingness,rmse,macro_f1\n')
 
-    # load incomplete data
+    complete_dirpath = data_dirpath / 'working/complete'
     incomplete_dirpath = data_dirpath / 'working/incomplete'
     incomplete_log_filepath = incomplete_dirpath / 'logs.csv'
 
@@ -78,16 +78,16 @@ def main():
             continue
         else:
             items = line.split(',')
-            openml_id, n_missing_values, missing_column_name, missingness = int(items[0]), int(items[1]), items[2], items[4].strip()
+            openml_id, train_or_test, n_missing_values, missing_column_name, missingness = int(items[0]), items[1], int(items[2]), items[3], items[5].strip()
 
-            X_original_filepath = openml_dirpath / f'{openml_id}/X.csv'
-            X_incomplete_filepath = incomplete_dirpath / f'{openml_id}/X_{missing_column_name}_{n_missing_values}-{missingness}.csv'
+            X_complete_filepath = complete_dirpath / f'{openml_id}/X_{train_or_test}.csv'
+            X_incomplete_filepath = incomplete_dirpath / f'{openml_id}/X_{train_or_test}_{missing_column_name}_{n_missing_values}-{missingness}.csv'
             X_imputed_dirpath = output_dirpath / f'imputed_data/{openml_id}'
             X_imputed_dirpath.mkdir(parents=True, exist_ok=True)
-            X_imputed_filepath = X_imputed_dirpath / f'X_{missing_column_name}_{n_missing_values}-{missingness}.csv'
+            X_imputed_filepath = X_imputed_dirpath / f'X_{train_or_test}_{missing_column_name}_{n_missing_values}-{missingness}.csv'
             X_categories_filepath = openml_dirpath / f'{openml_id}/X_categories.json'
 
-            evaluate(args, openml_id, X_original_filepath, X_incomplete_filepath, X_imputed_filepath, X_categories_filepath, results_filepath)
+            evaluate(args, openml_id, train_or_test, X_complete_filepath, X_incomplete_filepath, X_imputed_filepath, X_categories_filepath, results_filepath)
 
     return
 

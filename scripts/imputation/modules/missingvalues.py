@@ -24,6 +24,8 @@ class MissingValues:
         self.n_corrupted_rows = n_corrupted_rows
         self.sampling = missingness
         self.na_value = na_value
+        
+        np.random.seed(seed)
 
     def sample_rows(self, data):
         if self.n_corrupted_rows >= len(data):

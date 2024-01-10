@@ -28,6 +28,9 @@ class MeanModeImputer():
             imputer = SimpleImputer(missing_values=np.nan, strategy='most_frequent')
             X_categorical_imputed = imputer.fit_transform(X_categorical)
             X_categorical_imputed = pd.DataFrame(X_categorical_imputed, columns=X_categorical_columns)
+            for column in X_categorical_imputed.columns:
+                if X_categorical_imputed[column].dtype == 'float64' or str(X_categorical_imputed[column][0]).find('.') != -1:
+                    X_categorical_imputed[column] = X_categorical_imputed[column].astype('int64')
 
         if X_numerical.shape[1] > 0 and X_categorical.shape[1] > 0:
             X_imputed = pd.merge(X_numerical_imputed, X_categorical_imputed, left_index=True, right_index=True).reindex(columns=X_original_columns)
@@ -65,6 +68,9 @@ class KNNImputer():
             X_categorical_imputed = imputer.fit_transform(X_categorical)
             X_categorical_imputed = encoder.inverse_transform(X_categorical_imputed)
             X_categorical_imputed = pd.DataFrame(X_categorical_imputed, columns=X_categorical_columns)
+            for column in X_categorical_imputed.columns:
+                if X_categorical_imputed[column].dtype == 'float64' or str(X_categorical_imputed[column][0]).find('.') != -1:
+                    X_categorical_imputed[column] = X_categorical_imputed[column].astype('int64')
 
         if X_numerical.shape[1] > 0 and X_categorical.shape[1] > 0:
             X_imputed = pd.merge(X_numerical_imputed, X_categorical_imputed, left_index=True, right_index=True).reindex(columns=X_original_columns)
@@ -105,6 +111,9 @@ class RandomForestImputer():
             X_categorical_imputed = imputer.fit_transform(X_categorical)
             X_categorical_imputed = encoder.inverse_transform(X_categorical_imputed)
             X_categorical_imputed = pd.DataFrame(X_categorical_imputed, columns=X_categorical_columns)
+            for column in X_categorical_imputed.columns:
+                if X_categorical_imputed[column].dtype == 'float64' or str(X_categorical_imputed[column][0]).find('.') != -1:
+                    X_categorical_imputed[column] = X_categorical_imputed[column].astype('int64')
 
         if X_numerical.shape[1] > 0 and X_categorical.shape[1] > 0:
             X_imputed = pd.merge(X_numerical_imputed, X_categorical_imputed, left_index=True, right_index=True).reindex(columns=X_original_columns)

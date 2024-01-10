@@ -40,8 +40,9 @@ class ImputationEvaluator:
 
         macro_f1_results = {}
         for column in X_categorical_columns:
+            categories = self.X_categories[column]
             if self.X_incomplete[column].isna().any():
-                macro_f1 = f1_score(X_complete_categorical[column], X_imputed_categorical[column], average='macro')
+                macro_f1 = f1_score(X_complete_categorical[column], X_imputed_categorical[column], labels=categories, average='macro')
                 macro_f1_results[column] = macro_f1
 
         return macro_f1_results

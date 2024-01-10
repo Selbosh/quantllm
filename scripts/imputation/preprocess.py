@@ -92,16 +92,12 @@ def process_datasets(args: argparse.Namespace, selected_datasets: pd.DataFrame, 
         X_original_filepath = openml_dirpath / f'{openml_id}/X.csv'
         y_original_filepath = openml_dirpath / f'{openml_id}/y.csv'
         X_original = pd.read_csv(X_original_filepath)
-        y_original = pd.read_csv(y_original_filepath)
+        y_original = pd.read_csv(y_original_filepath, keep_default_na=False, na_values=[''])
 
         # Split dataset into train and test
         X_train, X_test, y_train, y_test = train_test_split(
             X_original, y_original, test_size=args.test_size, random_state=args.seed
         )
-        X_train.to_csv(complete_dirpath / f'{openml_id}/X_train.csv', index=False)
-        X_test.to_csv(complete_dirpath / f'{openml_id}/X_test.csv', index=False)
-        y_train.to_csv(complete_dirpath / f'{openml_id}/y_train.csv', index=False)
-        y_test.to_csv(complete_dirpath / f'{openml_id}/y_test.csv', index=False)
 
         # Fetch lists of categorical and numerical columns
         X_categories_filepath = openml_dirpath / f'{openml_id}/X_categories.json'
@@ -109,6 +105,14 @@ def process_datasets(args: argparse.Namespace, selected_datasets: pd.DataFrame, 
             X_categories = json.load(f)
         X_categorical_columns = list(X_categories.keys())
         X_numerical_columns = list(set(X_original.columns.tolist()) - set(X_categorical_columns))
+
+        X_train[X_categorical_columns] = X_train[X_categorical_columns].astype(str)
+        X_test[X_categorical_columns] = X_test[X_categorical_columns].astype(str)
+
+        X_train.to_csv(complete_dirpath / f'{openml_id}/X_train.csv', index=False)
+        X_test.to_csv(complete_dirpath / f'{openml_id}/X_test.csv', index=False)
+        y_train.to_csv(complete_dirpath / f'{openml_id}/y_train.csv', index=False)
+        y_test.to_csv(complete_dirpath / f'{openml_id}/y_test.csv', index=False)
 
         target_column = select_column(args, openml_id, X_categorical_columns, X_numerical_columns)
 
@@ -148,6 +152,8 @@ def select_column(args: argparse.Namespace, openml_id: int, X_categorical_column
     else:
         columns = list(set(X_categorical_columns + X_numerical_columns))
     
+    np.random.seed(args.seed)
+    
     # n_corrupted_columns = min(args.n_corrupted_columns, len(columns))
     return np.random.choice(columns, 1, replace=False)[0]
 
@@ -166,16 +172,16 @@ def generate_and_save_incomplete_datasets(args: argparse.Namespace, X: pd.DataFr
         incomplete_dirpath (Path): The path to save incomplete datasets.
         log_filepath (Path): The path to save the log of incomplete datasets.
     '''
-    n_corrupted_rows_list = args.n_corrupted_rows_train if train_or_test == 'train' else args.n_corrupted_rows_test
-    for n_corrupted_rows in tqdm(n_corrupted_rows_list):
-        for missingness in ['MNAR', 'MAR', 'MCAR']:
-            corruption = MissingValues(column=target_column, n_corrupted_rows=n_corrupted_rows, missingness=missingness)
-            X_incomplete = corruption.transform(X)
+    n_corrupted_rows = args.n_corrupted_rows_train if train_or_test == 'train' else args.n_corrupted_rows_test
+    for missingness in tqdm(['MNAR', 'MAR', 'MCAR']):
+        corruption = MissingValues(column=target_column, n_corrupted_rows=n_corrupted_rows, missingness=missingness, seed=args.seed)
+        X_incomplete = corruption.transform(X)
 
-            incomplete_filepath = incomplete_dirpath / f'{openml_id}/X_{train_or_test}_{target_column}_{n_corrupted_rows}-{missingness}.csv'
-            X_incomplete.to_csv(incomplete_filepath, index=False)
-            with open(log_filepath, 'a') as f:
-                f.write(f'{openml_id},{train_or_test},{n_corrupted_rows},{target_column},{target_column_type},{missingness}\n')
+        incomplete_filepath = incomplete_dirpath / f'{openml_id}/{missingness}/X_{train_or_test}.csv'
+        incomplete_filepath.parent.mkdir(parents=True, exist_ok=True)
+        X_incomplete.to_csv(incomplete_filepath, index=False)
+        with open(log_filepath, 'a') as f:
+            f.write(f'{openml_id},{train_or_test},{n_corrupted_rows},{target_column},{target_column_type},{missingness}\n')
 
 
 def config_args():
@@ -186,8 +192,8 @@ def config_args():
         argparse.Namespace: The command line arguments.
     '''
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--n_corrupted_rows_train', nargs='*', type=int, default=[40, 80, 120])
-    argparser.add_argument('--n_corrupted_rows_test', nargs='*', type=int, default=[10, 20, 30])
+    argparser.add_argument('--n_corrupted_rows_train', type=int, default=120)
+    argparser.add_argument('--n_corrupted_rows_test', type=int, default=30)
     argparser.add_argument('--n_corrupted_columns', type=int, default=1)
     argparser.add_argument('--column_type', nargs='*', type=str, default=['categorical', 'numerical'])
     argparser.add_argument('--test_size', type=float, default=0.2)
