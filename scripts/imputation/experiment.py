@@ -55,7 +55,7 @@ def imputation_experiment(args: argparse.Namespace, openml_id: int, train_or_tes
         openml_dirpath = data_dirpath / 'openml'
         description_file = openml_dirpath / f'{openml_id}/description.txt'
         description = description_file.read_text()
-        imputer = LLMImputer(X_categories=X_categories, dataset_description=description)
+        imputer = LLMImputer(X_categories=X_categories, dataset_description=description, model='gpt-4')
 
     # Run imputation
     X_imputed = imputer.fit_transform(X_incomplete)
@@ -130,7 +130,6 @@ def config_args():
     argparser.add_argument('--debug', action='store_true')
     argparser.add_argument('--openml_id', type=int, default=None)
     argparser.add_argument('--missingness', type=str, default=None)
-    argparser.add_argument('--train_or_test', type=str, default=None)
     argparser.add_argument('--evaluate', action='store_true')
     argparser.add_argument('--downstream', action='store_true')
     argparser.add_argument('--seed', type=int, default=42)
@@ -164,7 +163,6 @@ def main():
     
     incomplete_log_filepath = incomplete_dirpath / 'logs.csv'
     incomplete_log = pd.read_csv(incomplete_log_filepath, header=0)
-    
     incomplete_log = incomplete_log.drop('train_or_test', axis=1).drop('NumberOfInstancesWithMissingValues', axis=1).drop_duplicates()
 
     for log in tqdm(incomplete_log.itertuples()):

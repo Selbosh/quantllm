@@ -83,19 +83,19 @@ poetry run python scripts/imputation/experiment.py --method meanmode --debug --e
 
 If you want to run experiments for a specific dataset, please give the OpenML ID, missingness, train/test. For example,
 ```bash
-poetry run python scripts/imputation/experiment.py --method meanmode --debug --openml_id 31 --missingness MCAR --train_or_test train --evaluate
+poetry run python scripts/imputation/experiment.py --method meanmode --debug --openml_id 31 --missingness MCAR --evaluate
 ```
 
 You can also evaluate downstream tasks by adding the downstream flag.
 ```bash
-poetry run python scripts/imputation/experiment.py --method meanmode --debug --evaluate
+poetry run python scripts/imputation/experiment.py --method meanmode --debug --evaluate --downstream
 ```
 
 ```bash
 poetry run python scripts/imputation/experiment.py
   [--method {meanmode, knn, rf, llm}] [--debug]
-  [--openml_id OPENML_ID] [--missingness {MCAR, MAR, MNAR}] [--train_or_test {train, test}]
-  [--evaluate]
+  [--openml_id OPENML_ID] [--missingness {MCAR, MAR, MNAR}]
+  [--evaluate] [--downstream]
 
 required arguments:
   --method                  select a imputation method you want to apply (default value: meanmode)
@@ -104,8 +104,25 @@ optional arguments:
   --debug                   display some additional logs to the terminal
   --openml_id               specify a target openml id
   --missingness             specify a missingness pattern (MCAR or MAR or MNAR)
-  --train_or_test           flag to specify subsets (train or test)
   --evaluate                calculate RMSE or Macro F1
+  --downstream              evaluate downstream tasks
+```
+
+If you want to only evaluate for the imputed csv files, try
+
+```bash
+poetry run python scripts/imputation/evaluation.py
+  [--method {meanmode, knn, rf, llm}] [--debug]
+  [--openml_id OPENML_ID] [--missingness {MCAR, MAR, MNAR}]
+  [--downstream]
+
+required arguments:
+  --method                  select a imputation method you want to apply (default value: meanmode)
+
+optional arguments:
+  --debug                   display some additional logs to the terminal
+  --openml_id               specify a target openml id
+  --missingness             specify a missingness pattern (MCAR or MAR or MNAR)
   --downstream              evaluate downstream tasks
 ```
 
