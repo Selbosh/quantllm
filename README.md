@@ -126,6 +126,10 @@ optional arguments:
   --downstream              evaluate downstream tasks
 ```
 
+### Modify LLM Imputer
+
+If you want to modify imputation method using LLMs, please edit `/scripts/imputation/modules/llmimputer.py`.
+
 ## Getting started
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.

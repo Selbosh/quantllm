@@ -2,21 +2,94 @@ import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 import os
+import tiktoken
 import time
 from openai import OpenAI
 
 
 class LLMImputer():
-    def __init__(self, na_value=np.nan, X_categories: dict = {}, dataset_description: str = None):
+    def __init__(self, na_value=np.nan, X_categories: dict = {}, dataset_description: str = None, model: str = 'gpt-4', debug: bool = False):
+        '''
+        Args:
+            na_value: The value to be replaced with the imputation.
+            X_categories: A dictionary of categorical features and their categories.
+            dataset_description: A description of the dataset in a markdown format.
+        '''
+        
         self.na_value = na_value
         self.X_categories = X_categories
         self.dataset_description = dataset_description
+        self.model = model
+        self.num_tokens = 0
+        self.debug = debug
         
         load_dotenv()
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
-    def generate_dataset_variables_description(self, X: pd.DataFrame):
+    def fit_transform(self, X: pd.DataFrame):
+        X_copy = X.copy()
+
+        epi_prompt = self.__expert_prompt_initialization(self.dataset_description)
+        dataset_variable_description = self.__generate_dataset_variables_description(X_copy)
+
+        # The imputation module will be called for each rows with missing values
+        # Rows with no missing values will be skipped
+        X_copy = X_copy.apply(lambda x: self.__data_imputation(x, dataset_variable_description, epi_prompt) if x.isna().sum() > 0 else x, axis=1)
+
+        if self.debug:
+            print(f"Total number of tokens used: {self.num_tokens}")
+
+        return X_copy
+
+
+    def __num_tokens_from_messages(self, system_prompt, user_prompt, model="gpt-4"):
+        """Return the number of tokens used by a list of messages."""
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except KeyError:
+            print("Warning: model not found. Using cl100k_base encoding.")
+            encoding = tiktoken.get_encoding("cl100k_base")
+        if model in {
+                "gpt-3.5-turbo-0613",
+                "gpt-3.5-turbo-16k-0613",
+                "gpt-4-0314",
+                "gpt-4-32k-0314",
+                "gpt-4-0613",
+                "gpt-4-32k-0613",
+            }:
+            tokens_per_message = 3
+            tokens_per_name = 1
+        elif model == "gpt-3.5-turbo-0301":
+            tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
+            tokens_per_name = -1  # if there's a name, the role is omitted
+        elif "gpt-3.5-turbo" in model:
+            print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
+            return self.__num_tokens_from_messages(system_prompt=system_prompt, user_prompt=user_prompt, model="gpt-3.5-turbo-0613")
+        elif "gpt-4" in model:
+            print("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
+            return self.__num_tokens_from_messages(system_prompt=system_prompt, user_prompt=user_prompt, model="gpt-4-0613")
+        else:
+            raise NotImplementedError(
+                f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens."""
+            )
+        num_tokens = 0
+        for message in messages:
+            num_tokens += tokens_per_message
+            for key, value in message.items():
+                num_tokens += len(encoding.encode(value))
+                if key == "name":
+                    num_tokens += tokens_per_name
+        num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+        return num_tokens
+
+
+    def __generate_dataset_variables_description(self, X: pd.DataFrame):
         """
         Generate dataset variables description from dataset
         """
@@ -25,51 +98,39 @@ class LLMImputer():
         X_numerical_columns = list(set(X_original_columns) - set(X_categorical_columns))
         X_missing_columns = X_original_columns[X.isna().any()].tolist()
 
-        dataset_variables_description = "Variable Name\tRole\tType\tDescription\tCandidates\tMissing Values\r\n"
+        dataset_variables_description = {}
 
         for column in X_original_columns:
-            if column in X_numerical_columns:
-                role = "Feature"
-                variable_type = "Numerical"
-                description = ""
-                candidates = f"range: from {X[column].min()} to { X[column].max()}"
-                missing_values = "no"
-            elif column in X_categorical_columns:
+            if column in X_categorical_columns:
                 role = "Feature"
                 variable_type = "Categorical"
                 description = ""
-                category_list = list(filter(lambda x: not pd.isna(x), X[column].unique().tolist()))
+                category_list = self.X_categories[column]
                 candidates = f'categories: {category_list}'
                 missing_values = "no"
             else:
-                role = ""
-                variable_type = ""
+                role = "Feature"
+                variable_type = "Numerical"
                 description = ""
-                candidates = ""
-                missing_values = ""
-
+                candidates = f"range from {X[column].min()} to { X[column].max()}"
+                missing_values = "no"
+            
             if column in X_missing_columns:
                 missing_values = "yes"
 
-            dataset_variables_description += f"{column}\t{role}\t{variable_type}\t{description}\t{candidates}\t{missing_values}\r\n"
+            description = {
+                "role": role,
+                "variable_type": variable_type,
+                "description": description,
+                "candidates": candidates,
+                "missing_values": missing_values
+            }
+            dataset_variables_description[column] = description
 
         return dataset_variables_description
 
 
-    def fit_transform(self, X: pd.DataFrame):
-        X_copy = X.copy()
-
-        epi_prompt = self.expert_prompt_initialization(self.dataset_description)
-        dataset_variable_description = self.generate_dataset_variables_description(X_copy)
-
-        # The imputation module will be called for each rows with missing values
-        # Rows with no missing values will be skipped
-        X_copy = X_copy.apply(lambda x: self.data_imputation(x, dataset_variable_description, epi_prompt) if x.isna().sum() > 0 else x, axis=1)
-
-        return X_copy
-
-
-    def __gpt_api_call__(self, model, system_prompt, user_prompt, temperature=0.2, max_tokens=256, frequency_penalty=0.0):
+    def __gpt_api_call(self, model, system_prompt, user_prompt, temperature=0.2, max_tokens=256, frequency_penalty=0.0):
         """
         Make an API call to OpenAI's GPT-4.
 
@@ -111,40 +172,52 @@ class LLMImputer():
                 self.__gpt_api_call__(model, system_prompt, user_prompt, temperature, max_tokens, frequency_penalty)
 
 
-    def expert_prompt_initialization(self, dataset_description: str):
+    def __expert_prompt_initialization(self, dataset_description: str):
         """
         Expert Prompt Initialization (EPI) module
         """
-
         # First API Call to generate the Expert Prompt Initialization (epi)
-        model = "gpt-4"
-        system_prompt = \
-            """
-            I am going to give you a description of a dataset. Please read it and then tell me which hypothetical persona would be the best domain expert on the content of the data set if I had questions about specific variables, attributes or properties.\r\nI don't need a data scientist or machine learning expert, and I don't have questions about the analysis of the data, but about specific attributes and values.\r\nPlease do not give me a list. Just give me a detailed description of a (single) person who really knows a lot about the field in which the dataset was generated.\r\nDo not use your knowledge about the author of the data record as a guide. Do not mention the dataset or anything about it. Do not explain what you do. Just give the description and be concise. No Intro like 'An expert would be'.
-            """
-        user_prompt_prefix = \
-            """
-            Here is the description of the dataset:\r\n\r\n
-            """
-        user_prompt_suffix = \
-            """
-            \r\n\r\n\r\n\r\nRemember: Do not mention the dataset in your description. 
-            Don\'t explain what you do. Just give me a concise description of a hypthetical person, that would be an expert on this.\r\n
-            Formulate this as an instruction like \"You are an ...\".
-            """
+        system_prompt = (
+                            "I am going to give you a description of a dataset. "
+                            "Please read it and then tell me which hypothetical "
+                            "persona would be the best domain expert on the content "
+                            "of the data set if I had questions about specific variables, "
+                            "attributes or properties.\r\n"
+                            "I don't need a data scientist or machine learning expert, "
+                            "and I don't have questions about the analysis of the data"
+                            "but about specific attributes and values.\r\n"
+                            "Please do not give me a list. Just give me a detailed description of a "
+                            "(single) person who really knows a lot about the field in which the dataset was generated.\r\n"
+                            "Do not use your knowledge about the author of the data record as a guide. "
+                            "Do not mention the dataset or anything about it. Do not explain what you do. "
+                            "Just give the description and be concise. No Intro like 'An expert would be'."
+                        )
+        user_prompt_prefix = (
+                            "Here is the description of the dataset:\r\n\r\n"
+                        )
+        user_prompt_suffix = (
+                            "\r\n\r\n\r\n\r\n"
+                            "Remember: Do not mention the dataset in your description. "
+                            "Don\'t explain what you do. Just give me a concise description "
+                            "of a hypthetical person, that would be an expert on this.\r\n"
+                            "Formulate this as an instruction like \"You are an ...\"."
+                        )
         user_prompt = user_prompt_prefix + dataset_description + user_prompt_suffix
         epi_max_tokens = 2048
 
-        epi_prompt = self.__gpt_api_call__(model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
+        num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
+        if self.debug:
+            print(f"Number of tokens used for EPI: {num_tokens}")
+        self.num_tokens += num_tokens
+        epi_prompt = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
         
-        if epi_prompt == None or epi_prompt == "":
-            self.expert_prompt_initialization(dataset_description)
-            return
+        if epi_prompt == None:
+            raise ValueError("The Expert Prompt Initialization (epi) module returned None.")
 
         return epi_prompt
 
 
-    def data_imputation(self, X_row: pd.Series, dataset_variables_description: str, epi_prompt: str):
+    def __data_imputation(self, X_row: pd.Series, dataset_variables_description: dict, epi_prompt: str):
         """
         Data Imputation (DI) module
 
@@ -156,37 +229,54 @@ class LLMImputer():
         # missing value in the row must be marked as "<missing>"!
         # dataset_row = "4  12   4  21   1   4   3   3   1  42   3   1   2   1   1   0   0   1   0   <missing>   1   0   1   0   1"
 
-        dataset_row = X_row.to_string(index=False).replace("nan", "<missing>").split("\n")
-        dataset_row = [item.strip() for item in dataset_row]
-        dataset_row = "\t".join(dataset_row)
-
         # Second API Call to generate the Data Imputation (di)
-        model = "gpt-4"
-        system_prompt = epi_prompt + "\r\n\r\n###\r\n\r\nThe Problem: We would like to analyze a data set, but unfortunately this data set has some missing values."
-        user_prompt_prefix = \
-            """
-            The Problem: We would like to analyze a data set, but unfortunately this data set has some missing values.\r\n\r\n
-            Here is the description of the variables in the dataset as a table:\r\n\r\n
-            """
-        user_prompt_suffix = \
-            """
-            Your Task: Please use your years of experience and the knowledge you have acquired in the course of your work to provide an estimate of 
-            what value the missing entry (marked as <missing>) in a column would most likely have.\r\n\r\n
-            IMPORTANT: Please do not provide any explanation or clarification. Only answer with the respective value in quotation marks (\"\").\r\n\r\n
-            The row with the missing value is:\r\n
-            """
-        user_prompt = user_prompt_prefix + dataset_variables_description + user_prompt_suffix + dataset_row
+        system_prompt = epi_prompt + "\r\n\r\n###\r\n\r\n"
+        user_prompt_prefix = (
+                                "THE PROBLEM: We would like to analyze a data set, "
+                                "but unfortunately this data set has some missing values."
+                                "\r\n\r\n###\r\n\r\n"
+                            )
+        user_prompt_suffix = (
+                                "YOUR TASK: "
+                                "Please use your years of experience and the knowledge you have acquired "
+                                "in the course of your work to provide an estimate of what value the missing value "
+                                "(marked as <missing>) in the following row of the dataset would most likely have."
+                                "\r\n\r\n"
+                                "IMPORTANT: "
+                                "Please do not provide any explanation or clarification. "
+                                "Only answer with the respective value in quotation marks (\"\")."
+                                "\r\n\r\n"
+                                "Here is a set of values from that row, along with their data type and the column description:"
+                                "\r\n\r\n"
+                            )
+        dataset_row = ""
+        target_colmn = ""
+        for column in list(X_row.index):
+            target_colmn = column if pd.isna(X_row.loc[column]) else target_colmn
+            value = X_row.loc[column] if pd.notna(X_row.loc[column]) else "<missing>"
+            data_type = dataset_variables_description[column]["variable_type"]
+            candidates = dataset_variables_description[column]["candidates"]
+            dataset_row += f'The {column} is {value} ([Description] variable_type: {data_type}, {candidates}). '
+        
+        user_prompt = user_prompt_prefix + user_prompt_suffix + dataset_row
         di_max_tokens = 256
 
-        di = self.__gpt_api_call__(model, system_prompt, user_prompt, max_tokens=di_max_tokens)
-        print(di)
+        num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
+        self.num_tokens += num_tokens
+        di = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
 
-        if di == None or di == "":
-            self.data_imputation(X_row, dataset_variables_description, epi_prompt)
-            return
+        if di == None:
+            raise ValueError("The Data Imputation (di) module returned None.")
 
-        if di.isnumeric():
+        di = di.strip('"').strip("'").strip()
+
+        # convert to float if the value is numerical
+        if dataset_variables_description[target_colmn]["variable_type"] == "Numerical":
             di = float(di)
+
+        if self.debug:
+            print(f"Imputed value: {di}")
+            print(f"Number of tokens used for DI: {num_tokens}")
 
         X_row = X_row.fillna(di)
 
