@@ -29,7 +29,6 @@ def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, ext
 
     Extraction criteria:
         - The number of missing values is 0.
-        - The number of samples is less than 50,000.
 
     Args:
         args (argparse.Namespace): The command line arguments.
@@ -48,14 +47,6 @@ def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, ext
         for _, row in removed_datasets.iterrows():
             f.write(','.join(map(str, row.tolist())) + '\n')
     candidate_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] == 0.0]
-
-    # Extract datasets which samples are less than 50,000
-    with open(extraction_log_filepath, 'a') as f:
-        removed_datasets = candidate_datasets[candidate_datasets['NumberOfInstances'] > 50000.0]
-        f.write(','.join(removed_datasets.columns.tolist()) + '\n')
-        for _, row in removed_datasets.iterrows():
-            f.write(','.join(map(str, row.tolist())) + '\n')
-    candidate_datasets = candidate_datasets[candidate_datasets['NumberOfInstances'] < 50000.0]
 
     if 'categorical' in args.column_type and 'numerical' in args.column_type and args.n_corrupted_columns == 1:
         return candidate_datasets
