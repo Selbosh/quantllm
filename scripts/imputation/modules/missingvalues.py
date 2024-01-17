@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import pandas as pd
 
@@ -7,7 +8,7 @@ class MissingValues:
     This class is based on the MissingValues class from Jenga.
     https://github.com/schelterlabs/jenga
     '''
-    def __init__(self, column, n_corrupted_rows, na_value=np.nan, missingness='MCAR', seed=42):
+    def __init__(self, n_corrupted_rows: int, corrupted_columns_fraction: float, na_value=np.nan, missingness='MCAR', seed=42):
         '''
         This class is based on the MissingValues class from Jenga.
         https://github.com/schelterlabs/jenga
@@ -20,14 +21,14 @@ class MissingValues:
             - na_value:   value
             - missingness:   sampling mechanism for corruptions, string in ['MCAR', 'MAR', 'MNAR']
         '''
-        self.column = column
         self.n_corrupted_rows = n_corrupted_rows
+        self.corrupted_columns_fraction = corrupted_columns_fraction
         self.sampling = missingness
         self.na_value = na_value
-        
+
         np.random.seed(seed)
 
-    def sample_rows(self, data):
+    def sample_rows(self, data, column):
         if self.n_corrupted_rows >= len(data):
             rows = data.index
         # Completely At Random
@@ -41,11 +42,11 @@ class MissingValues:
             # Not At Random
             if self.sampling.endswith('NAR'):
                 # pick a random percentile of values in this column
-                rows = data[self.column].sort_values().iloc[perc_idx].index
+                rows = data[column].sort_values().iloc[perc_idx].index
 
             # At Random
             elif self.sampling.endswith('AR'):
-                depends_on_col = np.random.choice(list(set(data.columns) - {self.column}))
+                depends_on_col = np.random.choice(list(set(data.columns) - {column}))
                 # pick a random percentile of values in other column
                 rows = data[depends_on_col].sort_values().iloc[perc_idx].index
 
@@ -53,9 +54,22 @@ class MissingValues:
             ValueError(f"sampling type '{self.sampling}' not recognized")
 
         return rows
+    
+    def sample_columns(self, data):
+        n_corrupted_columns = math.ceil(self.corrupted_columns_fraction * len(data.columns))
+        return np.random.choice(data.columns, n_corrupted_columns, replace=False)
 
-    def transform(self, X):
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         X_corrupted = X.copy(deep=True)
-        rows = self.sample_rows(X_corrupted)
-        X_corrupted.loc[rows, [self.column]] = self.na_value
+
+        columns = self.sample_columns(X_corrupted)
+        for column in columns:
+            rows = self.sample_rows(X_corrupted, column)
+            X_corrupted.loc[rows, [column]] = self.na_value
+
+        if len(X_corrupted[X_corrupted.isna().any(axis=1)]) > self.n_corrupted_rows:
+            n_revert_rows = len(X_corrupted[X_corrupted.isna().any(axis=1)]) - self.n_corrupted_rows
+            revert_rows = np.random.choice(X_corrupted[X_corrupted.isna().any(axis=1)].index, n_revert_rows, replace=False)
+            X_corrupted.loc[revert_rows, :] = X.loc[revert_rows, :]
+
         return X_corrupted

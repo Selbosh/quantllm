@@ -8,22 +8,24 @@ from openai import OpenAI
 
 
 class LLMImputer():
-    def __init__(self, na_value=np.nan, X_categories: dict = {}, dataset_description: str = None, model: str = 'gpt-4', debug: bool = False):
+    def __init__(self, na_value=np.nan, X_categories: dict = {}, dataset_description: str = "", model: str = 'gpt-4', debug: bool = False):
         '''
         Args:
-            na_value: The value to be replaced with the imputation.
-            X_categories: A dictionary of categorical features and their categories.
-            dataset_description: A description of the dataset in a markdown format.
+            - `na_value`: The value to be replaced with the imputation. Default is `np.nan`.
+            - `X_categories`: A dictionary of categorical features and their categories.
+            - `dataset_description`: A description of the dataset in a markdown format.
+            - `model`: The model to be used for the imputation. Default is `gpt-4`.
+            - `debug`: If `True`, print debug messages. Default is `False`.
         '''
-        
+
+        load_dotenv()
+
         self.na_value = na_value
         self.X_categories = X_categories
         self.dataset_description = dataset_description
         self.model = model
         self.num_tokens = 0
         self.debug = debug
-        
-        load_dotenv()
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
@@ -44,12 +46,20 @@ class LLMImputer():
 
 
     def __num_tokens_from_messages(self, system_prompt, user_prompt, model="gpt-4"):
-        """Return the number of tokens used by a list of messages."""
+        """
+        Return the number of tokens used by a list of messages.
+        Basically, this function is a copy of the sample code from OpenAI.
+
+        Args:
+            - `system_prompt`: The system prompt or context for the conversation.
+            - `user_prompt`: The user's input or question.
+            - `model`: The model to be used (e.g., 'gpt-4').
+        """
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
-        
+
         try:
             encoding = tiktoken.encoding_for_model(model)
         except KeyError:
@@ -92,15 +102,17 @@ class LLMImputer():
     def __generate_dataset_variables_description(self, X: pd.DataFrame):
         """
         Generate dataset variables description from dataset
+
+        Args:
+            - `X`: The dataset to be described.
         """
-        X_original_columns = X.columns
+        X_columns = X.columns
         X_categorical_columns = self.X_categories.keys()
-        X_numerical_columns = list(set(X_original_columns) - set(X_categorical_columns))
-        X_missing_columns = X_original_columns[X.isna().any()].tolist()
+        X_missing_columns = X_columns[X.isna().any()].tolist()
 
         dataset_variables_description = {}
 
-        for column in X_original_columns:
+        for column in X_columns:
             if column in X_categorical_columns:
                 role = "Feature"
                 variable_type = "Categorical"
@@ -134,13 +146,13 @@ class LLMImputer():
         """
         Make an API call to OpenAI's GPT-4.
 
-        Parameters:
-        - model: The model to be used (e.g., 'gpt-4').
-        - system_prompt: The system prompt or context for the conversation.
-        - user_prompt: The user's input or question.
-        - temperature: Controls randomness (lower is more deterministic).
-        - max_tokens: Maximum length of the response.
-        - frequency_penalty: Discourages repetition.
+        Args:
+            - `model`: The model to be used (e.g., 'gpt-4').
+            - `system_prompt`: The system prompt or context for the conversation.
+            - `user_prompt`: The user's input or question.
+            - `temperature`: Controls randomness (lower is more deterministic).
+            - `max_tokens`: Maximum length of the response.
+            - `frequency_penalty`: Discourages repetition.
 
         Returns:
         - The content of the response from GPT-4.
@@ -210,7 +222,7 @@ class LLMImputer():
             print(f"Number of tokens used for EPI: {num_tokens}")
         self.num_tokens += num_tokens
         epi_prompt = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
-        
+
         if epi_prompt == None:
             raise ValueError("The Expert Prompt Initialization (epi) module returned None.")
 
@@ -249,35 +261,45 @@ class LLMImputer():
                                 "Here is a set of values from that row, along with their data type and the column description:"
                                 "\r\n\r\n"
                             )
-        dataset_row = ""
-        target_colmn = ""
-        for column in list(X_row.index):
-            target_colmn = column if pd.isna(X_row.loc[column]) else target_colmn
-            value = X_row.loc[column] if pd.notna(X_row.loc[column]) else "<missing>"
-            data_type = dataset_variables_description[column]["variable_type"]
-            candidates = dataset_variables_description[column]["candidates"]
-            dataset_row += f'The {column} is {value} ([Description] variable_type: {data_type}, {candidates}). '
-        
-        user_prompt = user_prompt_prefix + user_prompt_suffix + dataset_row
-        di_max_tokens = 256
 
-        num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
-        self.num_tokens += num_tokens
-        di = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
+        # run imputation for each target column which has missing values
+        dis = {}
+        for target_column in list(X_row[X_row.isna()].index):
+            dataset_row = ""
+            for column in list(X_row.index):
+                if column != target_column and pd.isna(X_row.loc[column]):
+                    continue
+                value = "<missing>" if column == target_column else X_row.loc[column]
+                variable_type = dataset_variables_description[column]["variable_type"]
+                candidates = dataset_variables_description[column]["candidates"]
+                dataset_row += f'The {column} is {value} ([Description] variable_type: {variable_type}, {candidates}). '
 
-        if di == None:
-            raise ValueError("The Data Imputation (di) module returned None.")
+            user_prompt = user_prompt_prefix + user_prompt_suffix + dataset_row
+            di_max_tokens = 256
 
-        di = di.strip('"').strip("'").strip()
+            num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
+            self.num_tokens += num_tokens
+            di = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
 
-        # convert to float if the value is numerical
-        if dataset_variables_description[target_colmn]["variable_type"] == "Numerical":
-            di = float(di)
+            if di is None:
+                raise ValueError("The Data Imputation (di) module returned None.")
 
-        if self.debug:
-            print(f"Imputed value: {di}")
-            print(f"Number of tokens used for DI: {num_tokens}")
+            di = di.strip('"').strip("'").strip()
 
-        X_row = X_row.fillna(di)
+            # convert to float if the value is numerical
+            if dataset_variables_description[target_column]["variable_type"] == "Numerical":
+                di = float(di)
+
+            if self.debug:
+                print(f"Imputed value: {di}")
+                print(f"Number of tokens used for DI: {num_tokens}")
+
+            dis[target_column] = di
+
+            # not impute for each iteration to avoid including the imputed value in the next iteration
+
+        # replace missing values with imputed values
+        for target_column in dis.keys():
+            X_row.loc[target_column] = dis[target_column]
 
         return X_row

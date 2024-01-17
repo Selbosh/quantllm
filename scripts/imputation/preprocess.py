@@ -1,16 +1,36 @@
-from pathlib import Path
-from tqdm import tqdm
-import argparse
 import json
-import pandas as pd
+
+import argparse
 import numpy as np
-import random
+import pandas as pd
+from pathlib import Path
 from sklearn.model_selection import train_test_split
+from tqdm import tqdm
+
 from modules.missingvalues import MissingValues
 
 
+def config_args():
+    """
+    Configure command line arguments.
+
+    Returns:
+        argparse.Namespace: The command line arguments.
+    """
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('--n_corrupted_rows_train', type=int, default=120)
+    argparser.add_argument('--n_corrupted_rows_test', type=int, default=30)
+    argparser.add_argument('--corrupted_columns_fraction', type=int, default=0.3)
+    argparser.add_argument('--column_type', nargs='*', type=str, default=['categorical', 'numerical'])
+    argparser.add_argument('--test_size', type=float, default=0.2)
+    argparser.add_argument('--dataset', nargs='*', type=str, default=['incomplete', 'complete'])
+    argparser.add_argument('--debug', action='store_true')
+    argparser.add_argument('--seed', type=int, default=42)
+    return argparser.parse_args()
+
+
 def load_dataset_list(openml_dir: Path):
-    '''
+    """
     Load the list of datasets.
 
     Args:
@@ -18,13 +38,13 @@ def load_dataset_list(openml_dir: Path):
 
     Returns:
         pd.DataFrame: The list of datasets.
-    '''
+    """
     dataset_list_file = openml_dir / 'openml-datasets-CC18.csv'
     return pd.read_csv(dataset_list_file)
 
 
-def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, extraction_log_filepath: Path):
-    '''
+def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, generate: bool):
+    """
     Extracts datasets based on specified criteria.
 
     Extraction criteria:
@@ -33,124 +53,36 @@ def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, ext
     Args:
         args (argparse.Namespace): The command line arguments.
         dataset_list (pd.DataFrame): The list of datasets.
-        extraction_log_filepath (Path): The filepath to the extraction log.
 
     Returns:
         pd.DataFrame: The extracted datasets.
-    '''
+    """
     candidate_datasets = dataset_list.copy()
 
     # Extract datasets that have no missing values
-    with open(extraction_log_filepath, 'a') as f:
-        removed_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] > 0.0]
-        f.write(','.join(removed_datasets.columns.tolist()) + '\n')
-        for _, row in removed_datasets.iterrows():
-            f.write(','.join(map(str, row.tolist())) + '\n')
-    candidate_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] == 0.0]
+    if generate:
+        candidate_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] == 0.0]
+        if 'categorical' in args.column_type and 'numerical' in args.column_type:
+            return candidate_datasets
 
-    if 'categorical' in args.column_type and 'numerical' in args.column_type and args.n_corrupted_columns == 1:
-        return candidate_datasets
+        if 'categorical' in args.column_type:
+            # Extract datasets that have at least one categorical column
+            # Note: 'NumberOfSymbolicFeatures' includes the target column
+            candidate_datasets = candidate_datasets[(candidate_datasets['NumberOfSymbolicFeatures'] - 1.0) > 0.0]
 
-    if 'categorical' in args.column_type:
-        # Extract datasets that have at least one categorical column
-        # Note: 'NumberOfSymbolicFeatures' includes the target column
-        candidate_datasets = candidate_datasets[(candidate_datasets['NumberOfSymbolicFeatures'] - 1.0) > 0.0]
-
-    if 'numerical' in args.column_type:
-        # Extract datasets that have at least one numerical column
-        candidate_datasets = candidate_datasets[candidate_datasets['NumberOfNumericFeatures'] > 0.0]
+        if 'numerical' in args.column_type:
+            # Extract datasets that have at least one numerical column
+            candidate_datasets = candidate_datasets[candidate_datasets['NumberOfNumericFeatures'] > 0.0]
+    else:
+        candidate_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] > 0.0]
 
     return candidate_datasets
 
 
-def process_datasets(args: argparse.Namespace, selected_datasets: pd.DataFrame, openml_dirpath: Path, complete_dirpath: Path, incomplete_dirpath: Path, log_filepath: Path):
-    '''
-    Generate missing values for all selected datasets.
-
-    Args:
-        args (argparse.Namespace): The command line arguments.
-        selected_datasets (pd.DataFrame): The list of selected datasets.
-        openml_dirpath (Path): The path to the OpenML datasets.
-        complete_dirpath (Path): The path to save splitted complete datasets.
-        incomplete_dirpath (Path): The path to save incomplete datasets.
-        log_filepath (Path): The path to save the log of incomplete datasets.
-    '''
-    for openml_id in selected_datasets['did']:
-        print(f'Generating missing values for OpenML ID: {openml_id}')
-
-        Path(complete_dirpath / str(openml_id)).mkdir(parents=True, exist_ok=True)
-        Path(incomplete_dirpath / str(openml_id)).mkdir(parents=True, exist_ok=True)
-
-        X_original_filepath = openml_dirpath / f'{openml_id}/X.csv'
-        y_original_filepath = openml_dirpath / f'{openml_id}/y.csv'
-        X_original = pd.read_csv(X_original_filepath)
-        y_original = pd.read_csv(y_original_filepath, keep_default_na=False, na_values=[''])
-
-        # Split dataset into train and test
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_original, y_original, test_size=args.test_size, random_state=args.seed
-        )
-
-        # Fetch lists of categorical and numerical columns
-        X_categories_filepath = openml_dirpath / f'{openml_id}/X_categories.json'
-        with open(X_categories_filepath, 'r') as f:
-            X_categories = json.load(f)
-        X_categorical_columns = list(X_categories.keys())
-        X_numerical_columns = [column for column in X_original.columns.tolist() if column not in X_categorical_columns]
-
-        X_train[X_categorical_columns] = X_train[X_categorical_columns].astype(str)
-        X_test[X_categorical_columns] = X_test[X_categorical_columns].astype(str)
-
-        X_train.to_csv(complete_dirpath / f'{openml_id}/X_train.csv', index=False)
-        X_test.to_csv(complete_dirpath / f'{openml_id}/X_test.csv', index=False)
-        y_train.to_csv(complete_dirpath / f'{openml_id}/y_train.csv', index=False)
-        y_test.to_csv(complete_dirpath / f'{openml_id}/y_test.csv', index=False)
-
-        target_column = select_column(args, openml_id, X_categorical_columns, X_numerical_columns)
-
-        target_column_type = 'categorical' if target_column in X_categorical_columns else 'numerical'
-
-        generate_and_save_incomplete_datasets(
-            args, X_train, 'train', target_column, target_column_type, openml_id, incomplete_dirpath, log_filepath
-        )
-        generate_and_save_incomplete_datasets(
-            args, X_test, 'test', target_column, target_column_type, openml_id, incomplete_dirpath, log_filepath
-        )
-
-
-def select_column(args: argparse.Namespace, openml_id: int, X_categorical_columns: list, X_numerical_columns: list):
-    '''
-    Select columns to be corrupted.
-
-    Args:
-        args (argparse.Namespace): The command line arguments.
-        openml_id (int): The OpenML ID of the dataset.
-        X_categorical_columns (list): The list of categorical columns.
-        X_numerical_columns (list): The list of numerical columns.
-
-    Returns:
-        list: The list of columns to be corrupted.
-    '''
-    columns = []
-    if args.column_type == ['categorical']:
-        if len(X_categorical_columns) == 0 and args.debug:
-            print(f'OpenML ID {openml_id} has no categorical columns')
-        columns = X_categorical_columns
-    elif args.column_type == ['numerical']:
-        if len(X_numerical_columns) == 0 and args.debug:
-            print(f'OpenML ID {openml_id} has no numerical columns')
-            return []
-        columns = X_numerical_columns
-    else:
-        columns = X_categorical_columns + X_numerical_columns
-
-    return np.random.choice(columns, size=None, replace=False)
-
-
-def generate_and_save_incomplete_datasets(args: argparse.Namespace, X: pd.DataFrame, train_or_test: str, target_column: str, target_column_type: str, openml_id: int, incomplete_dirpath: Path, log_filepath: Path):
-    '''
+def generate_missing_values(args: argparse.Namespace, X: pd.DataFrame, train_or_test: str, openml_id: int, categorical_columns: list, output_dirpath: Path, log_filepath: Path):
+    """
     Generate and save incomplete datasets.
-    
+
     Args:
         args (argparse.Namespace): The command line arguments.
         X (pd.DataFrame): The dataset.
@@ -160,75 +92,151 @@ def generate_and_save_incomplete_datasets(args: argparse.Namespace, X: pd.DataFr
         openml_id (int): The OpenML ID of the dataset.
         incomplete_dirpath (Path): The path to save incomplete datasets.
         log_filepath (Path): The path to save the log of incomplete datasets.
-    '''
+    """
+    if args.debug:
+        print(f'Generating {train_or_test} dataset')
     n_corrupted_rows = args.n_corrupted_rows_train if train_or_test == 'train' else args.n_corrupted_rows_test
-    for missingness in tqdm(['MNAR', 'MAR', 'MCAR']):
-        corruption = MissingValues(column=target_column, n_corrupted_rows=n_corrupted_rows, missingness=missingness, seed=args.seed)
-        X_incomplete = corruption.transform(X)
+    corrupted_columns_fraction = args.corrupted_columns_fraction
+    for missingness in tqdm(['MCAR', 'MAR', 'MNAR']):
+        corruption = MissingValues(
+            n_corrupted_rows=n_corrupted_rows, corrupted_columns_fraction=corrupted_columns_fraction, 
+            missingness=missingness, seed=args.seed
+        )
+        X_corrupted = corruption.transform(X)
 
-        incomplete_filepath = incomplete_dirpath / f'{openml_id}/{missingness}/X_{train_or_test}.csv'
-        incomplete_filepath.parent.mkdir(parents=True, exist_ok=True)
-        X_incomplete.to_csv(incomplete_filepath, index=False)
+        corrupted_columns = X_corrupted.columns[X_corrupted.isnull().any()].tolist()
+        n_corrupted_columns = len(corrupted_columns)
+        n_corrupted_categorical_columns = len([column for column in corrupted_columns if column in categorical_columns])
+        n_corrupted_numerical_columns = n_corrupted_columns - n_corrupted_categorical_columns
+
+        if args.debug:
+            # Test if the number of corrupted rows and columns are correct
+            print(f'Number of corrupted rows: {X_corrupted.shape[0] - X_corrupted.dropna().shape[0]}')
+            print(f'Number of corrupted columns (categorical/numerical): {n_corrupted_columns} ({n_corrupted_categorical_columns}/{n_corrupted_numerical_columns})')
+
+        corrupted_filepath = output_dirpath / f'{openml_id}/{missingness}/X_{train_or_test}.csv'
+        corrupted_filepath.parent.mkdir(parents=True, exist_ok=True)
+        X_corrupted.to_csv(corrupted_filepath, index=False)
+
         with open(log_filepath, 'a') as f:
-            f.write(f'{openml_id},{train_or_test},{n_corrupted_rows},{target_column},{target_column_type},{missingness}\n')
+            f.write(f'{openml_id},{missingness},{train_or_test},{n_corrupted_rows},{n_corrupted_columns},{n_corrupted_categorical_columns},{n_corrupted_numerical_columns}\n')
 
 
-def config_args():
-    '''
-    Configure command line arguments.
+def preprocess(args: argparse.Namespace, input_dirpath: Path, output_dirpath: Path, generate: bool):
+    """
+    Create data for
 
-    Returns:
-        argparse.Namespace: The command line arguments.
-    '''
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument('--n_corrupted_rows_train', type=int, default=120)
-    argparser.add_argument('--n_corrupted_rows_test', type=int, default=30)
-    argparser.add_argument('--n_corrupted_columns', type=int, default=1)
-    argparser.add_argument('--column_type', nargs='*', type=str, default=['categorical', 'numerical'])
-    argparser.add_argument('--test_size', type=float, default=0.2)
-    argparser.add_argument('--seed', type=int, default=42)
-    return argparser.parse_args()
+    Args:
+        args (argparse.Namespace): The command line arguments.
+        selected_datasets (pd.DataFrame): The list of selected datasets.
+        openml_dirpath (Path): The path to the OpenML datasets.
+        complete_dirpath (Path): The path to save splitted complete datasets.
+        incomplete_dirpath (Path): The path to save incomplete datasets.
+        log_filepath (Path): The path to save the log of incomplete datasets.
+    """
+    original_dirpath = output_dirpath / 'original' if generate else output_dirpath
+    corrupted_dirpath = output_dirpath / 'corrupted' if generate else None
+    original_dirpath.mkdir(parents=True, exist_ok=True)
+    corrupted_dirpath.mkdir(parents=True, exist_ok=True) if generate else None
+
+    log_filepath = output_dirpath / 'logs.csv'
+    if not log_filepath.exists():
+        with open(log_filepath, 'w') as f:
+            f.write('openml_id,missingness,train_or_test,n_corrupted_rows,n_corrupted_columns,n_corrupted_categorical_columns,n_corrupted_numerical_columns\n')
+
+    dataset_list = load_dataset_list(input_dirpath)
+    target_datasets = dataset_extraction(args=args, dataset_list=dataset_list, generate=generate)
+    if len(target_datasets) == 0:
+        ValueError('No dataset was found that meets the conditions')
+
+    for openml_id in target_datasets['did']:
+        print(f'# Processing OpenML ID {openml_id}')
+
+        Path(original_dirpath / str(openml_id)).mkdir(parents=True, exist_ok=True)
+
+        X = pd.read_csv(input_dirpath / f'{openml_id}/X.csv')
+        y = pd.read_csv(input_dirpath / f'{openml_id}/y.csv', keep_default_na=False, na_values=[''])
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=args.test_size, random_state=args.seed
+        )
+
+        # Fetch lists of categorical and numerical columns
+        X_categories_filepath = input_dirpath / f'{openml_id}/X_categories.json'
+        with open(X_categories_filepath, 'r') as f:
+            X_categories = json.load(f)
+        categorical_columns = list(X_categories.keys())
+        numerical_columns = [column for column in X.columns.tolist() if column not in categorical_columns]
+
+        if generate:
+            # Convert categorical columns to string
+            X_train[categorical_columns] = X_train[categorical_columns].astype(str)
+            X_test[categorical_columns] = X_test[categorical_columns].astype(str)
+
+        X_train.to_csv(original_dirpath / f'{openml_id}/X_train.csv', index=False)
+        X_test.to_csv(original_dirpath / f'{openml_id}/X_test.csv', index=False)
+        y_train.to_csv(original_dirpath / f'{openml_id}/y_train.csv', index=False)
+        y_test.to_csv(original_dirpath / f'{openml_id}/y_test.csv', index=False)
+
+        if generate:
+            Path(corrupted_dirpath / str(openml_id)).mkdir(parents=True, exist_ok=True)
+
+            generate_missing_values(
+                args=args, X=X_train, train_or_test='train', openml_id=openml_id, 
+                categorical_columns=categorical_columns, output_dirpath=corrupted_dirpath, 
+                log_filepath=log_filepath
+            )
+            generate_missing_values(
+                args=args, X=X_test, train_or_test='test', openml_id=openml_id, 
+                categorical_columns=categorical_columns, output_dirpath=corrupted_dirpath, 
+                log_filepath=log_filepath
+            )
+        else:
+            n_corrupted_rows = X_train.shape[0] - X_train.dropna().shape[0]
+            corrupted_columns = X_train.columns[X_train.isnull().any()].tolist()
+            n_corrupted_columns = len(corrupted_columns)
+            n_corrupted_categorical_columns = len([column for column in corrupted_columns if column in categorical_columns])
+            n_corrupted_numerical_columns = n_corrupted_columns - n_corrupted_categorical_columns
+            with open(log_filepath, 'a') as f:
+                f.write(f'{openml_id},,train,{n_corrupted_rows},{n_corrupted_columns},{n_corrupted_categorical_columns},{n_corrupted_numerical_columns}\n')
+
+            n_corrupted_rows = X_test.shape[0] - X_test.dropna().shape[0]
+            corrupted_columns = X_train.columns[X_train.isnull().any()].tolist()
+            n_corrupted_columns = len(corrupted_columns)
+            n_corrupted_categorical_columns = len([column for column in corrupted_columns if column in categorical_columns])
+            n_corrupted_numerical_columns = n_corrupted_columns - n_corrupted_categorical_columns
+            with open(log_filepath, 'a') as f:
+                f.write(f'{openml_id},,test,{n_corrupted_rows},{n_corrupted_columns},{n_corrupted_categorical_columns},{n_corrupted_numerical_columns}\n')
+
+    logs = pd.read_csv(log_filepath, header=0)
+    logs = logs.drop_duplicates()
+    logs.to_csv(log_filepath, index=False)
 
 
 def main():
     args = config_args()
 
-    # Set random seed. This is used to select datasets and columns to be corrupted.
     np.random.seed(args.seed)
-    random.seed(args.seed)
-    
+
     data_dirpath = Path(__file__).parents[2] / 'data'
-
-    # Load dataset list (default: /data/openml/openml-datasets-CC18.csv)
     openml_dirpath = data_dirpath / 'openml'
-    dataset_list = load_dataset_list(openml_dirpath)
-    
-    # Set paths to save incomplete datasets and logs
     working_dirpath = data_dirpath / 'working'
-    complete_dirpath = working_dirpath / 'complete'
-    incomplete_dirpath = working_dirpath / 'incomplete'
-    complete_dirpath.mkdir(parents=True, exist_ok=True)
-    incomplete_dirpath.mkdir(parents=True, exist_ok=True)
-    log_filepath = incomplete_dirpath / 'logs.csv' # log of incomplete datasets
-    if not log_filepath.exists():
-        with open(log_filepath, 'w') as f:
-            f.write('openml_id,train_or_test,NumberOfInstancesWithMissingValues,missing_column_name,missing_column_type,missingness\n')
-    extraction_log_filepath = incomplete_dirpath / 'extraction_logs.csv' # this log is used to check which datasets are removed by the extraction process
-    if not extraction_log_filepath.exists():
-        with open(extraction_log_filepath, 'w') as f:
-            f.write('did,name,version,uploader,status,format,MajorityClassSize,MaxNominalAttDistinctValues,MinorityClassSize,NumberOfClasses,NumberOfFeatures,NumberOfInstances,NumberOfInstancesWithMissingValues,NumberOfMissingValues,NumberOfNumericFeatures,NumberOfSymbolicFeatures\n')
 
-    # List datasets that meet the conditions
-    selected_datasets = dataset_extraction(args, dataset_list, extraction_log_filepath)
-    if len(selected_datasets) == 0:
-        ValueError('No dataset was found that meets the conditions')
+    if 'complete' in args.dataset:
+        # Split complete datasets into train and test, and generate missing values for train and test subsets.
+        preprocess(
+            args=args, 
+            input_dirpath=openml_dirpath, output_dirpath=working_dirpath / 'complete', 
+            generate=True
+        )
 
-    # Generate missing values for all selected datasets
-    process_datasets(args, selected_datasets, openml_dirpath, complete_dirpath, incomplete_dirpath, log_filepath)
-
-    logs = pd.read_csv(log_filepath, header=0)
-    logs = logs.drop_duplicates()
-    logs.to_csv(log_filepath, index=False)
+    if 'incomplete' in args.dataset:
+        # Split incomplete datasets into train and test.
+        preprocess(
+            args=args, 
+            input_dirpath=openml_dirpath, output_dirpath=working_dirpath / 'incomplete', 
+            generate=False
+        )
 
 
 if __name__ == "__main__":
