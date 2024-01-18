@@ -1,6 +1,7 @@
 import os
 import time
 
+import backoff
 from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
@@ -29,6 +30,7 @@ class LLMImputer():
         self.num_tokens = 0
         self.debug = debug
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+        self.rate_limit_per_minute = 5000
 
 
     def fit_transform(self, X: pd.DataFrame):
@@ -161,8 +163,7 @@ class LLMImputer():
         """
 
         client = OpenAI(
-            api_key=self.OPENAI_API_KEY,
-            max_retries=5,
+            api_key=self.OPENAI_API_KEY
         )
 
         # Construct the messages for the API call
@@ -171,9 +172,29 @@ class LLMImputer():
             {"role": "user", "content": user_prompt}
         ]
 
+        @backoff.on_exception(backoff.expo, openai.RateLimitError)
+        def completions_with_backoff(**kwargs):
+            return client.chat.completions.create(**kwargs)
+
+        # Define a function that adds a delay to a Completion API call
+        def delayed_completion(delay_in_seconds: float = 1, **kwargs):
+            """
+            Delay a completion by a specified amount of time.
+            """
+
+            # Sleep for the delay
+            time.sleep(delay_in_seconds)
+
+            # Call the Completion API and return the result
+            return completions_with_backoff(**kwargs)
+        
+        # Calculate the delay based on your rate limit
+        delay = 60.0 / self.rate_limit_per_minute
+
         # Perform the API call
         try:
-            response = client.chat.completions.create(
+            response = delayed_completion(
+                delay_in_seconds=delay,
                 model=model,
                 messages=messages,
                 temperature=temperature,
@@ -187,6 +208,8 @@ class LLMImputer():
             print(e.__cause__)  # an underlying Exception, likely raised within httpx.
         except openai.RateLimitError as e:
             print("A 429 status code was received; we should back off a bit.")
+            time.sleep(60) # sleep for 1 minute
+            self.__gpt_api_call(model, system_prompt, user_prompt, temperature, max_tokens, frequency_penalty)
         except openai.APIStatusError as e:
             print("Another non-200-range status code was received")
             print(e.status_code)
