@@ -30,13 +30,13 @@ class MeanModeImputer():
             X_categorical_imputed = pd.DataFrame(X_categorical_imputed, columns=X_categorical_columns)
 
         if X_numerical.shape[1] > 0 and X_categorical.shape[1] > 0:
-            X_imputed = pd.merge(X_numerical_imputed, X_categorical_imputed, left_index=True, right_index=True).reindex(columns=X_original_columns)
+            X_imputed = pd.merge(X_numerical_imputed, X_categorical_imputed, left_index=True, right_index=True)
         elif X_numerical.shape[1] > 0:
             X_imputed = X_numerical_imputed
         else:
             X_imputed = X_categorical_imputed
 
-        return X_imputed
+        return X_imputed.reindex(columns=X_original_columns)
 
 
 class KNNImputer():
@@ -72,7 +72,7 @@ class KNNImputer():
         else:
             X_imputed = X_categorical_imputed
 
-        return X_imputed
+        return X_imputed.reindex(columns=X_original_columns)
 
 
 class RandomForestImputer():

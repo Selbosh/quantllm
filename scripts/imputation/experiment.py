@@ -79,19 +79,27 @@ def experiment(args: argparse.Namespace, timestamp: str, dataset_type: str, open
         X_imputed_train_filepath.parent.mkdir(parents=True, exist_ok=True)
         X_imputed_test_filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        imputation_experiment(
-            args=args, timestamp=timestamp, openml_id=openml_id, train_or_test='train', missingness=missingness,
-            X_groundtruth_filepath=X_groundtruth_train_filepath, X_corrupted_filepath=X_corrupted_train_filepath,
-            X_imputed_filepath=X_imputed_train_filepath, X_categories_filepath=X_categories_filepath,
-            results_filepath=imputation_results_filepath
-        )
-
-        imputation_experiment(
-            args=args, timestamp=timestamp, openml_id=openml_id, train_or_test='test', missingness=missingness,
-            X_groundtruth_filepath=X_groundtruth_test_filepath, X_corrupted_filepath=X_corrupted_test_filepath,
-            X_imputed_filepath=X_imputed_test_filepath, X_categories_filepath=X_categories_filepath,
-            results_filepath=imputation_results_filepath
-        )
+        try:
+            imputation_experiment(
+                args=args, timestamp=timestamp, openml_id=openml_id, train_or_test='train', missingness=missingness,
+                X_groundtruth_filepath=X_groundtruth_train_filepath, X_corrupted_filepath=X_corrupted_train_filepath,
+                X_imputed_filepath=X_imputed_train_filepath, X_categories_filepath=X_categories_filepath,
+                results_filepath=imputation_results_filepath
+            )
+        except Exception as e:
+            print(f'Error in OpenML Id: {openml_id}, Train/Test: train, Method: {args.method}')
+            print(e)
+        
+        try:
+            imputation_experiment(
+                args=args, timestamp=timestamp, openml_id=openml_id, train_or_test='test', missingness=missingness,
+                X_groundtruth_filepath=X_groundtruth_test_filepath, X_corrupted_filepath=X_corrupted_test_filepath,
+                X_imputed_filepath=X_imputed_test_filepath, X_categories_filepath=X_categories_filepath,
+                results_filepath=imputation_results_filepath
+            )
+        except Exception as e:
+            print(f'Error in OpenML Id: {openml_id}, Train/Test: test, Method: {args.method}')
+            print(e)
         
         if args.downstream:
             downstream_experiment(
@@ -147,7 +155,7 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         openml_dirpath = data_dirpath / 'openml'
         description_file = openml_dirpath / f'{openml_id}/description.txt'
         description = description_file.read_text()
-        imputer = LLMImputer(X_categories=X_categories, dataset_description=description, model='gpt-4')
+        imputer = LLMImputer(X_categories=X_categories, dataset_description=description, model='gpt-4-1106-preview', debug=args.debug)
 
     # Run imputation
     X_imputed = imputer.fit_transform(X_corrupted)
