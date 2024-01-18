@@ -1,16 +1,16 @@
+import json
+
 from pathlib import Path
 import argparse
 import datetime as dt
 import pandas as pd
-import json
 from tqdm import tqdm
-
-from modules.baseimputer import MeanModeImputer, KNNImputer, RandomForestImputer
-from modules.llmimputer import LLMImputer
-from modules.evaluator import ImputationEvaluator
-
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import OneHotEncoder
+
+from modules.baseimputer import MeanModeImputer, KNNCustomImputer, RandomForestImputer
+from modules.llmimputer import LLMImputer
+from modules.evaluator import ImputationEvaluator
 
 
 def config_args():
@@ -127,7 +127,7 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
     '''
 
     if args.debug:
-        print(f'Imputing OpenML Id: {openml_id}, Train/Test: {train_or_test}, Method: {args.method}')
+        print(f'Imputing OpenML Id: {openml_id}, Missingness: {missingness}, Train/Test: {train_or_test}, Method: {args.method}')
 
     with open(X_categories_filepath, 'r') as f:
         X_categories = json.load(f)
@@ -147,7 +147,7 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
     if args.method == 'meanmode':
         imputer = MeanModeImputer(X_categories=X_categories)
     elif args.method == 'knn':
-        imputer = KNNImputer(n_jobs=-1, X_categories=X_categories)
+        imputer = KNNCustomImputer(n_jobs=-1, X_categories=X_categories)
     elif args.method == 'rf':
         imputer = RandomForestImputer(n_jobs=-1, X_categories=X_categories)
     elif args.method == 'llm':

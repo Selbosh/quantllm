@@ -1,9 +1,11 @@
+import os
+import time
+
+from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
-from dotenv import load_dotenv
-import os
 import tiktoken
-import time
+import openai
 from openai import OpenAI
 
 
@@ -158,7 +160,10 @@ class LLMImputer():
         - The content of the response from GPT-4.
         """
 
-        client = OpenAI(api_key=self.OPENAI_API_KEY)
+        client = OpenAI(
+            api_key=self.OPENAI_API_KEY,
+            max_retries=5,
+        )
 
         # Construct the messages for the API call
         messages = [
@@ -177,11 +182,15 @@ class LLMImputer():
             )
             # Return the response content
             return response.choices[0].message.content
-        except Exception as e:
-            if e.code == 429:
-                print("Too many requests. Waiting 2 seconds...")
-                time.sleep(2)
-                self.__gpt_api_call__(model, system_prompt, user_prompt, temperature, max_tokens, frequency_penalty)
+        except openai.APIConnectionError as e:
+            print("The server could not be reached")
+            print(e.__cause__)  # an underlying Exception, likely raised within httpx.
+        except openai.RateLimitError as e:
+            print("A 429 status code was received; we should back off a bit.")
+        except openai.APIStatusError as e:
+            print("Another non-200-range status code was received")
+            print(e.status_code)
+            print(e.response)
 
 
     def __expert_prompt_initialization(self, dataset_description: str):

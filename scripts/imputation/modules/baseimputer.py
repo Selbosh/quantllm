@@ -39,7 +39,7 @@ class MeanModeImputer():
         return X_imputed.reindex(columns=X_original_columns)
 
 
-class KNNImputer():
+class KNNCustomImputer():
     def __init__(self, na_value=np.nan, n_jobs: int | None = None, X_categories: dict = {}):
         self.na_value = na_value
         self.n_jobs = n_jobs
@@ -52,7 +52,7 @@ class KNNImputer():
         X_numerical, X_categorical = X[X_numerical_columns], X[X_categorical_columns]
 
         if X_numerical.shape[1] > 0:
-            imputer = KNNImputer(neighbors=5, weights='distance', n_jobs=self.n_jobs)
+            imputer = KNNImputer(n_neighbors=5, weights='distance')
             X_numerical_imputed = imputer.fit_transform(X_numerical)
             X_numerical_imputed = pd.DataFrame(X_numerical_imputed, columns=X_numerical_columns)
 
