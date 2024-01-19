@@ -31,27 +31,37 @@ poetry run python scripts/get-datasets.py
 
 ### Setups for using LLMs
 
-To use LLM Imputer (`/scripts/imputation/modules/llmimputer.py`), please set environmental variabls in `/.env`.
+You can use OpenAI API, Llama 2 or Mistral AI API via LangChain.
+You can also use other LLMs that behave like OpenAI API, e.g. LM Studio.
 
-Additionally, if you want to use Llama 2 via HuggingFaceTextGenInference, please host a server and set its URL. If you want to use Llama 2 via LlamaCPP, please install `llama-cpp-python` library using [these installation instructions](https://python.langchain.com/docs/integrations/llms/llamacpp#installation) and store [llama-2-7b-chat.Q4_0.gguf](https://huggingface.co/TheBloke/Llama-2-7b-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_0.gguf) model locally.
+Instructions for each model are the following:
 
-- OpenAI
+- OpenAI API (via LangChain)
+  Please set your API key in `/.env`.
   ```
   OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
   ```
-- MistralAI
+- Mistral AI API (via LangChain)
+  Please set your API key in `/.env`.
   ```
   MISTRALAI_API_KEY="YOUR_MISTRALAI_API_KEY"
   ```
-- Llama 2
-  - via HuggingFaceTextGenInference
-    ```
-    LLAMA2_INFERENCE_SERVER_URL="YOUR_LLAMA2_INFERENCE_SERVER_URL"
-    ```
-  - via LlamaCPP
-    ```
-    LLAMA_MODEL_PATH="YOUR_LLAMA_MODEL_PATH"
-    ```
+- Llama 2 (via LangChain)
+  First, please follow [the official instructions](https://python.langchain.com/docs/integrations/chat/llama2_chat).
+  If you want to use HuggingFaceTextGenInference, please add a URL of your inference server to `/.env`.
+  ```
+  LLAMA2_INFERENCE_SERVER_URL="YOUR_LLAMA2_INFERENCE_SERVER_URL"
+  ```
+  If you want to use LlamaCPP, please add a path to `gguf` file to `/.env`.
+  ```
+  LLAMA_MODEL_PATH="YOUR_LLAMA_MODEL_PATH"
+  ```
+- LM Studio (or other custom APIs)
+  If you want to use LM Studio, please start the local inference server.
+  Please set a base URL to `/.env`.
+  ```
+  LMSTUDIO_INFERENCE_SERVER_URL="http://localhost:1234/v1"
+  ```
 
 ### Preprocess
 
@@ -105,9 +115,19 @@ poetry run python scripts/imputation/experiment.py --method meanmode
 
 #### LLM Imputer
 
-For LLMs, you can test several models. The default model is `gpt-4`. [Updated] MistralAI and Llama 2 are also available in addition to OpenAI.
+For LLMs, you can test several models. Mistral AI (via LangChain), Llama 2 (via LangChain) and LM Studio APIs are also available in addition to OpenAI.
+
+To select a model, set the `--llm_model` option. The default model is `gpt-4`. For LM Studio, please add the name of the model as well (e.g. `--llm_model lmstudio-llama-2-7b`).
+
+| Model | Argument (`*`: wildcard regex) |
+| ---- | ---- |
+| GPT (e.g. gpt-4, gpt-3.5-turbo) | `--llm_model gpt*` |
+| Mistral AI | `--llm_model mistral*` |
+| Llama 2 | `--llm_model llama*` |
+| LM Studio | `--llm_model lmstudio-*` |
+
 ```bash
-poetry run python scripts/imputation/experiment.py --method llm --llm_model gpt-3.5-turbo
+poetry run python scripts/imputation/experiment.py --method llm --llm_model mistral
 ```
 
 You can also ask whether you want LLMs to behave like an expert or not. The default role is `expert`.

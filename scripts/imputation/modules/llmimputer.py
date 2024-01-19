@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import tiktoken
 
+import openai
 from langchain.chains import LLMChain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts.chat import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
@@ -229,6 +230,24 @@ class LLMImputer():
             memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
             chain = LLMChain(llm=llama_model, prompt=prompt_template, memory=memory)
             response = chain.run(text=user_prompt)
+        elif model.startswith("lmstudio"):
+            base_url = os.getenv("LMSTUDIO_INFERENCE_SERVER_URL")
+            if base_url is None:
+                raise ValueError("Please set the environment variable LMSTUDIO_INFERENCE_SERVER_URL.")
+            client = openai.OpenAI(base_url=base_url, api_key="not-needed")
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                frequency_penalty=frequency_penalty,
+                n=1,
+            )
+            response = completion.choices[0].text
+
         if self.debug:
             print(f"- Response: {response}")
         return response
