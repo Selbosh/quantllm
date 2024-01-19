@@ -1,4 +1,5 @@
 import json
+import math
 
 import argparse
 import numpy as np
@@ -20,7 +21,7 @@ def config_args():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--n_corrupted_rows_train', type=int, default=120)
     argparser.add_argument('--n_corrupted_rows_test', type=int, default=30)
-    argparser.add_argument('--corrupted_columns_fraction', type=int, default=0.3)
+    argparser.add_argument('--n_corrupted_columns', type=int, default=6)
     argparser.add_argument('--column_type', nargs='*', type=str, default=['categorical', 'numerical'])
     argparser.add_argument('--test_size', type=float, default=0.2)
     argparser.add_argument('--dataset', nargs='*', type=str, default=['incomplete', 'complete'])
@@ -96,10 +97,10 @@ def generate_missing_values(args: argparse.Namespace, X: pd.DataFrame, train_or_
     if args.debug:
         print(f'Generating {train_or_test} dataset')
     n_corrupted_rows = args.n_corrupted_rows_train if train_or_test == 'train' else args.n_corrupted_rows_test
-    corrupted_columns_fraction = args.corrupted_columns_fraction
+    n_corrupted_columns = min(args.n_corrupted_columns, len(X.columns))
     for missingness in tqdm(['MCAR', 'MAR', 'MNAR']):
         corruption = MissingValues(
-            n_corrupted_rows=n_corrupted_rows, corrupted_columns_fraction=corrupted_columns_fraction, 
+            n_corrupted_rows=n_corrupted_rows, n_corrupted_columns=n_corrupted_columns, 
             missingness=missingness, seed=args.seed
         )
         X_corrupted = corruption.transform(X)

@@ -58,7 +58,7 @@ class KNNCustomImputer():
 
         if X_categorical.shape[1] > 0:
             knn = KNeighborsClassifier(n_neighbors=5, weights='distance', n_jobs=self.n_jobs)
-            imputer = IterativeImputer(estimator=knn, missing_values=np.nan, max_iter=10, random_state=42)
+            imputer = IterativeImputer(estimator=knn, missing_values=np.nan, max_iter=5, random_state=42)
             encoder = OrdinalEncoder()
             X_categorical = encoder.fit_transform(X_categorical)
             X_categorical_imputed = imputer.fit_transform(X_categorical)
@@ -87,8 +87,8 @@ class RandomForestImputer():
         
         X_categorical_columns = self.X_categories.keys()
 
-        clf = RandomForestClassifier(n_estimators=100, n_jobs=self.n_jobs)
-        rgr = RandomForestRegressor(n_estimators=100, n_jobs=self.n_jobs)
+        clf = RandomForestClassifier(n_estimators=10, n_jobs=self.n_jobs)
+        rgr = RandomForestRegressor(n_estimators=10, n_jobs=self.n_jobs)
         mf = MissForest(clf, rgr)
         
         if len(X_categorical_columns) > 0:

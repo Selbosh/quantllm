@@ -1,4 +1,5 @@
 import json
+import time
 
 from pathlib import Path
 import argparse
@@ -21,21 +22,20 @@ def config_args():
     argparser.add_argument('--openml_id', type=int, default=None)
     argparser.add_argument('--missingness', type=str, default=None)
     argparser.add_argument('--dataset', nargs='*', type=str, default=['incomplete', 'complete'])
+    argparser.add_argument('--llm_model', type=str, default='gpt-4')
     argparser.add_argument('--debug', action='store_true')
     argparser.add_argument('--seed', type=int, default=42)
     return argparser.parse_args()
 
 
 def experiment(args: argparse.Namespace, timestamp: str, dataset_type: str, openml_dirpath: Path, input_dirpath: Path, output_dirpath: Path):
-    imputation_results_filepath = None
+    imputation_results_filepath = output_dirpath / f'imputation_{timestamp}.csv'
     if args.evaluate:
-        imputation_results_filepath = output_dirpath / f'imputation_{timestamp}.csv'
         with open(imputation_results_filepath, 'w') as f:
             f.write('timestamp,method,openml_id,train_or_test,missing_column_name,missing_column_type,n_missing_values,missingness,rmse,macro_f1\n')
 
-    downstream_results_filepath = None
+    downstream_results_filepath = output_dirpath / f'downstream_{timestamp}.csv'
     if args.downstream:
-        downstream_results_filepath = output_dirpath / f'downstream_{timestamp}.csv'
         with open(downstream_results_filepath, 'w') as f:
             f.write('timestamp,method,openml_id,missing_column_name,missing_column_type,missingness,score\n')
 
@@ -125,6 +125,7 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         - X_categories_filepath:    path to save X_categories.json, pathlib.Path object
         - results_filepath:    path to save results, pathlib.Path object
     '''
+    starttime = time.perf_counter()
 
     if args.debug:
         print(f'Imputing OpenML Id: {openml_id}, Missingness: {missingness}, Train/Test: {train_or_test}, Method: {args.method}')
@@ -155,13 +156,32 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         openml_dirpath = data_dirpath / 'openml'
         description_file = openml_dirpath / f'{openml_id}/description.txt'
         description = description_file.read_text()
-        imputer = LLMImputer(X_categories=X_categories, dataset_description=description, model='gpt-4-1106-preview', debug=args.debug)
+        imputer = LLMImputer(X_categories=X_categories, dataset_description=description, model=args.llm_model, debug=args.debug)
 
     # Run imputation
     X_imputed = imputer.fit_transform(X_corrupted)
-
+    
     # Save imputed data
     X_imputed.to_csv(X_imputed_filepath, index=False)
+    
+    endtime = time.perf_counter()
+    
+    if args.method == 'llm':
+        log = imputer.fetch_log()
+        runtime = '{:.2f}'.format((endtime-starttime)/60)
+        logs_filepath = results_filepath.parent / 'llm_logs.csv'
+        logs_filepath.parent.mkdir(parents=True, exist_ok=True)
+        if not logs_filepath.exists():
+            with open(logs_filepath, 'w') as f:
+                f.write('timestamp,openml_id,missingness,train_or_test,model,num_total_tokens,num_input_tokens,num_output_tokens,runtime\n')
+        with open(logs_filepath, 'a') as f:
+            with open(logs_filepath, 'a') as f:
+                f.write(f'{timestamp},{openml_id},{missingness},{train_or_test},{log["model"]},{log["num_total_tokens"]},{log["num_input_tokens"]},{log["num_output_tokens"]},{runtime}\n')
+
+        epi_filepath = X_imputed_filepath.parent / f'{train_or_test}_epi.txt'
+        epi_filepath.parent.mkdir(parents=True, exist_ok=True)
+        with open(epi_filepath, 'w') as f:
+            f.write(log['epi_prompt'])
 
     # Evaluate imputation
     if args.evaluate and X_groundtruth is not None:

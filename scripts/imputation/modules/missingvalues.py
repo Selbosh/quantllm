@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import pandas as pd
 
@@ -8,7 +7,7 @@ class MissingValues:
     This class is based on the MissingValues class from Jenga.
     https://github.com/schelterlabs/jenga
     '''
-    def __init__(self, n_corrupted_rows: int, corrupted_columns_fraction: float, na_value=np.nan, missingness='MCAR', seed=42):
+    def __init__(self, n_corrupted_rows: int, n_corrupted_columns: int, na_value=np.nan, missingness='MCAR', seed=42):
         '''
         This class is based on the MissingValues class from Jenga.
         https://github.com/schelterlabs/jenga
@@ -22,7 +21,7 @@ class MissingValues:
             - missingness:   sampling mechanism for corruptions, string in ['MCAR', 'MAR', 'MNAR']
         '''
         self.n_corrupted_rows = n_corrupted_rows
-        self.corrupted_columns_fraction = corrupted_columns_fraction
+        self.n_corrupted_columns = n_corrupted_columns
         self.sampling = missingness
         self.na_value = na_value
 
@@ -56,8 +55,7 @@ class MissingValues:
         return rows
     
     def sample_columns(self, data):
-        n_corrupted_columns = math.ceil(self.corrupted_columns_fraction * len(data.columns))
-        return np.random.choice(data.columns, n_corrupted_columns, replace=False)
+        return np.random.choice(data.columns, self.n_corrupted_columns, replace=False)
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         X_corrupted = X.copy(deep=True)

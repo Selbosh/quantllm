@@ -1,13 +1,14 @@
 import os
 import time
+import json
 
 import backoff
 from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import tiktoken
+from pathlib import Path
 import openai
-from openai import OpenAI
 
 
 class LLMImputer():
@@ -27,16 +28,23 @@ class LLMImputer():
         self.X_categories = X_categories
         self.dataset_description = dataset_description
         self.model = model
-        self.num_tokens = 0
+        self.num_total_tokens = 0
+        self.num_input_tokens = 0
+        self.num_output_tokens = 0
         self.debug = debug
+        self.log = {}
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-        self.rate_limit_per_minute = 5000
+        self.rate_limit_per_minute = 500
+
+        self.log["model"] = self.model
 
 
     def fit_transform(self, X: pd.DataFrame):
         X_copy = X.copy()
 
         epi_prompt = self.__expert_prompt_initialization(self.dataset_description)
+        self.log["epi_prompt"] = epi_prompt
+
         dataset_variable_description = self.__generate_dataset_variables_description(X_copy)
 
         # The imputation module will be called for each rows with missing values
@@ -44,9 +52,17 @@ class LLMImputer():
         X_copy = X_copy.apply(lambda x: self.__data_imputation(x, dataset_variable_description, epi_prompt) if x.isna().sum() > 0 else x, axis=1)
 
         if self.debug:
-            print(f"Total number of tokens used: {self.num_tokens}")
+            print(f"Total number of tokens used: {self.num_total_tokens}")
+
+        self.log["num_total_tokens"] = self.num_total_tokens
+        self.log["num_input_tokens"] = self.num_input_tokens
+        self.log["num_output_tokens"] = self.num_output_tokens
 
         return X_copy
+
+
+    def fetch_log(self):
+        return self.log
 
 
     def __num_tokens_from_messages(self, system_prompt, user_prompt, model="gpt-4"):
@@ -161,8 +177,7 @@ class LLMImputer():
         Returns:
         - The content of the response from GPT-4.
         """
-
-        client = OpenAI(
+        client = openai.OpenAI(
             api_key=self.OPENAI_API_KEY
         )
 
@@ -171,6 +186,8 @@ class LLMImputer():
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
+
+        self.num_input_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, model)
 
         @backoff.on_exception(backoff.expo, openai.RateLimitError)
         def completions_with_backoff(**kwargs):
@@ -181,13 +198,9 @@ class LLMImputer():
             """
             Delay a completion by a specified amount of time.
             """
-
-            # Sleep for the delay
             time.sleep(delay_in_seconds)
+            return client.chat.completions.create(**kwargs)
 
-            # Call the Completion API and return the result
-            return completions_with_backoff(**kwargs)
-        
         # Calculate the delay based on your rate limit
         delay = 60.0 / self.rate_limit_per_minute
 
@@ -202,18 +215,22 @@ class LLMImputer():
                 frequency_penalty=frequency_penalty
             )
             # Return the response content
-            return response.choices[0].message.content
+            response_content = response.choices[0].message.content
+            self.num_output_tokens = self.__num_tokens_from_messages(system_prompt, response_content, model)
+            return response_content
         except openai.APIConnectionError as e:
             print("The server could not be reached")
             print(e.__cause__)  # an underlying Exception, likely raised within httpx.
         except openai.RateLimitError as e:
             print("A 429 status code was received; we should back off a bit.")
-            time.sleep(60) # sleep for 1 minute
-            self.__gpt_api_call(model, system_prompt, user_prompt, temperature, max_tokens, frequency_penalty)
+            print(e)
         except openai.APIStatusError as e:
             print("Another non-200-range status code was received")
             print(e.status_code)
             print(e.response)
+        except openai.AuthenticationError as e:
+            print("Authentication with OpenAI API failed.")
+            print(e)
 
 
     def __expert_prompt_initialization(self, dataset_description: str):
@@ -251,8 +268,9 @@ class LLMImputer():
 
         num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
         if self.debug:
-            print(f"Number of tokens used for EPI: {num_tokens}")
-        self.num_tokens += num_tokens
+            print(f"- Number of tokens used for EPI: {num_tokens}")
+        self.num_total_tokens += num_tokens
+
         epi_prompt = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
 
         if epi_prompt == None:
@@ -267,7 +285,6 @@ class LLMImputer():
 
         ToDo: Extract dataset variables description and dataset row from the dataset
         """
-
         # Dataset values 2
         # dataset_variables_description = "Variable Name	Role	Type	Demographic	Description	Units	Missing Values\r\nAttribute1	Feature	Categorical		Status of existing checking account		no\r\nAttribute2	Feature	Integer		Duration	months	no\r\nAttribute3	Feature	Categorical		Credit history		no\r\nAttribute4	Feature	Categorical		Purpose		no\r\nAttribute5	Feature	Integer		Credit amount		no\r\nAttribute6	Feature	Categorical		Savings account/bonds		no\r\nAttribute7	Feature	Categorical	Other	Present employment since		no\r\nAttribute8	Feature	Integer		Installment rate in percentage of disposable income		no\r\nAttribute9	Feature	Categorical	Marital Status	Personal status and sex		no\r\nAttribute10	Feature	Categorical		Other debtors / guarantors		no\r\nAttribute11	Feature	Integer		Present residence since		no\r\nAttribute12	Feature	Categorical		Property		no\r\nAttribute13	Feature	Integer	Age	Age	years	no\r\nAttribute14	Feature	Categorical		Other installment plans		no\r\nAttribute15	Feature	Categorical	Other	Housing		no\r\nAttribute16	Feature	Integer		Number of existing credits at this bank		no\r\nAttribute17	Feature	Categorical	Occupation	Job		no\r\nAttribute18	Feature	Integer		Number of people being liable to provide maintenance for		no\r\nAttribute19	Feature	Binary		Telephone		no\r\nAttribute20	Feature	Binary	Other	foreign worker		no\r\nclass	Target	Binary		1 = Good, 2 = Bad		no"
         # missing value in the row must be marked as "<missing>"!
@@ -295,8 +312,7 @@ class LLMImputer():
                             )
 
         # run imputation for each target column which has missing values
-        dis = {}
-        for target_column in list(X_row[X_row.isna()].index):
+        def __impute(target_column):
             dataset_row = ""
             for column in list(X_row.index):
                 if column != target_column and pd.isna(X_row.loc[column]):
@@ -305,33 +321,32 @@ class LLMImputer():
                 variable_type = dataset_variables_description[column]["variable_type"]
                 candidates = dataset_variables_description[column]["candidates"]
                 dataset_row += f'The {column} is {value} ([Description] variable_type: {variable_type}, {candidates}). '
-
+                
             user_prompt = user_prompt_prefix + user_prompt_suffix + dataset_row
             di_max_tokens = 256
-
+            
             num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
-            self.num_tokens += num_tokens
+            self.num_total_tokens += num_tokens
             di = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
-
+            
             if di is None:
                 raise ValueError("The Data Imputation (di) module returned None.")
-
+            
             di = di.strip('"').strip("'").strip()
-
+            
             # convert to float if the value is numerical
             if dataset_variables_description[target_column]["variable_type"] == "Numerical":
                 di = float(di)
-
+                
             if self.debug:
-                print(f"Imputed value: {di}")
-                print(f"Number of tokens used for DI: {num_tokens}")
+                print(f"- Imputed value: {di}")
+                print(f"- Number of tokens used for DI: {num_tokens}")
+                
+            return (target_column, di)
 
-            dis[target_column] = di
-
-            # not impute for each iteration to avoid including the imputed value in the next iteration
-
-        # replace missing values with imputed values
-        for target_column in dis.keys():
-            X_row.loc[target_column] = dis[target_column]
+        target_columns = list(X_row[X_row.isna()].index)
+        responses = [__impute(target_column) for target_column in target_columns]
+        for target_column, di in responses:
+            X_row.loc[target_column] = di
 
         return X_row
