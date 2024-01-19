@@ -31,7 +31,7 @@ poetry run python scripts/get-datasets.py
 
 ### Setups for using LLMs
 
-To use LLM Imputer (`/scripts/imputation/modules/llmimputer.py`), please set environmental variabls in `/.env/`.
+To use LLM Imputer (`/scripts/imputation/modules/llmimputer.py`), please set environmental variabls in `/.env`.
 
 Additionally, if you want to use Llama 2 via HuggingFaceTextGenInference, please host a server and set its URL. If you want to use Llama 2 via LlamaCPP, please install `llama-cpp-python` library using [these installation instructions](https://python.langchain.com/docs/integrations/llms/llamacpp#installation) and store [llama-2-7b-chat.Q4_0.gguf](https://huggingface.co/TheBloke/Llama-2-7b-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_0.gguf) model locally.
 
