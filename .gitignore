@@ -162,3 +162,5 @@ cython_debug/
 data/
 data
 poetry.lock
+models/
+models

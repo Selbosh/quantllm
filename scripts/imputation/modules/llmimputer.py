@@ -1,17 +1,18 @@
 import os
-import time
-import json
 
-import backoff
 from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import tiktoken
-from pathlib import Path
-import openai
 
-
-# TODO: Apply LangChain? to test on multiple LLM models
+from langchain.chains import LLMChain
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts.chat import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
+from langchain.schema import HumanMessage, SystemMessage
+from langchain_openai.chat_models import ChatOpenAI
+from langchain_mistralai.chat_models import ChatMistralAI
+from langchain_community.llms import llamacpp, huggingface_text_gen_inference
+from langchain_experimental.chat_models import Llama2Chat
 
 
 class LLMImputer():
@@ -24,22 +25,16 @@ class LLMImputer():
             - `model`: The model to be used for the imputation. Default is `gpt-4`.
             - `debug`: If `True`, print debug messages. Default is `False`.
         '''
-
-        load_dotenv()
-
         self.na_value = na_value
         self.X_categories = X_categories
         self.dataset_description = dataset_description
         self.model = model
         self.role = role
-        self.num_tokens = 0
+        self.num_tokens = 0 if self.model.startswith("gpt") else None
         self.debug = debug
         self.log = {}
-        self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
         self.rate_limit_per_minute = 500
-
         self.log["model"] = self.model
-
 
     def fit_transform(self, X: pd.DataFrame):
         X_copy = X.copy()
@@ -55,15 +50,15 @@ class LLMImputer():
         # Rows with no missing values will be skipped
         X_copy = X_copy.apply(lambda x: self.__data_imputation(x, dataset_variable_description, epi_prompt) if x.isna().sum() > 0 else x, axis=1)
 
-        if self.debug:
+        if self.llm_model.startswith("gpt") and self.debug:
             print(f"Total number of tokens used: {self.num_tokens}")
+
+        self.log["num_tokens"] = self.num_tokens
 
         return X_copy
 
-
     def fetch_log(self):
         return self.log
-
 
     def __num_tokens_from_messages(self, system_prompt, user_prompt, model="gpt-4"):
         """
@@ -118,7 +113,6 @@ class LLMImputer():
         num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
         return num_tokens
 
-
     def __generate_dataset_variables_description(self, X: pd.DataFrame):
         """
         Generate dataset variables description from dataset
@@ -161,8 +155,7 @@ class LLMImputer():
 
         return dataset_variables_description
 
-
-    def __gpt_api_call(self, model, system_prompt, user_prompt, temperature=0.2, max_tokens=256, frequency_penalty=0.0):
+    def __chat_api_call(self, model, system_prompt, user_prompt, temperature=0.2, max_tokens=256, frequency_penalty=0.0):
         """
         Make an API call to OpenAI's GPT-4.
 
@@ -177,57 +170,68 @@ class LLMImputer():
         Returns:
         - The content of the response from GPT-4.
         """
-        client = openai.OpenAI(
-            api_key=self.OPENAI_API_KEY
-        )
+        load_dotenv()
+
+        if self.debug:
+            print(f"- Starting API call to {model}")
 
         # Construct the messages for the API call
         messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
         ]
 
-        @backoff.on_exception(backoff.expo, openai.RateLimitError)
-        def completions_with_backoff(**kwargs):
-            return client.chat.completions.create(**kwargs)
-
-        # Define a function that adds a delay to a Completion API call
-        def delayed_completion(delay_in_seconds: float = 1, **kwargs):
-            """
-            Delay a completion by a specified amount of time.
-            """
-            time.sleep(delay_in_seconds)
-            return client.chat.completions.create(**kwargs)
-
-        # Calculate the delay based on your rate limit
-        delay = 60.0 / self.rate_limit_per_minute
-
-        # Perform the API call
-        try:
-            response = delayed_completion(
-                delay_in_seconds=delay,
+        response = None
+        if model.startswith("gpt"):
+            chat = ChatOpenAI(
+                api_key=os.getenv("OPENAI_API_KEY"),
                 model=model,
-                messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                frequency_penalty=frequency_penalty
+                frequency_penalty=frequency_penalty,
+                n=1
             )
-            # Return the response content
-            return response.choices[0].message.content
-        except openai.APIConnectionError as e:
-            print("The server could not be reached")
-            print(e.__cause__)  # an underlying Exception, likely raised within httpx.
-        except openai.RateLimitError as e:
-            print("A 429 status code was received; we should back off a bit.")
-            print(e)
-        except openai.APIStatusError as e:
-            print("Another non-200-range status code was received")
-            print(e.status_code)
-            print(e.response)
-        except openai.AuthenticationError as e:
-            print("Authentication with OpenAI API failed.")
-            print(e)
-
+            ai_message = chat(messages)
+            response = ai_message.content
+        elif model.startswith("mistral"):
+            chat = ChatMistralAI(
+                api_key=os.getenv("MISTRALAI_API_KEY"),
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            ai_message = chat(messages)
+            response = ai_message.content
+        elif model.startswith("llama"):
+            # Default model is the LlamaCpp model
+            if os.getenv("LLAMA2_INFERENCE_SERVER_URL") is None and os.getenv("LLAMA_MODEL_PATH") is None:
+                raise ValueError("Please set the environment variables LLAMA_MODEL_PATH or LLAMA2_INFERENCE_SERVER_URL.")
+            if os.getenv("LLAMA2_INFERENCE_SERVER_URL") is not None:
+                llm = huggingface_text_gen_inference.HuggingFaceTextGenInference(
+                    inference_server_url=os.getenv("LLAMA2_INFERENCE_SERVER_URL"),
+                    temperature=temperature,
+                    max_new_tokens=max_tokens,
+                )
+            else:
+                llm = llamacpp.LlamaCpp(
+                    model_path=os.getenv("LLAMA_MODEL_PATH"),
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    streaming=False,
+                )
+            llama_model = Llama2Chat(llm=llm)
+            llama_messages = [
+                SystemMessage(content=system_prompt),
+                MessagesPlaceholder(variable_name='chat_history'),
+                HumanMessagePromptTemplate.from_template('{text}'),
+            ]
+            prompt_template = ChatPromptTemplate.from_messages(llama_messages)
+            memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
+            chain = LLMChain(llm=llama_model, prompt=prompt_template, memory=memory)
+            response = chain.run(text=user_prompt)
+        if self.debug:
+            print(f"- Response: {response}")
+        return response
 
     def __expert_prompt_initialization(self, dataset_description: str):
         """
@@ -262,30 +266,23 @@ class LLMImputer():
         user_prompt = user_prompt_prefix + dataset_description + user_prompt_suffix
         epi_max_tokens = 2048
 
-        num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
-        if self.debug:
-            print(f"- Number of tokens used for EPI: {num_tokens}")
-        self.num_tokens += num_tokens
+        if self.model.startswith("gpt"):
+            num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
+            if self.debug:
+                print(f"- Number of tokens for EPI: {num_tokens}")
+            self.num_tokens += num_tokens
 
-        epi_prompt = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
+        epi_prompt = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
 
-        if epi_prompt == None:
+        if epi_prompt is None:
             raise ValueError("The Expert Prompt Initialization (epi) module returned None.")
 
         return epi_prompt
 
-
     def __data_imputation(self, X_row: pd.Series, dataset_variables_description: dict, epi_prompt: str):
         """
         Data Imputation (DI) module
-
-        ToDo: Extract dataset variables description and dataset row from the dataset
         """
-        # Dataset values 2
-        # dataset_variables_description = "Variable Name	Role	Type	Demographic	Description	Units	Missing Values\r\nAttribute1	Feature	Categorical		Status of existing checking account		no\r\nAttribute2	Feature	Integer		Duration	months	no\r\nAttribute3	Feature	Categorical		Credit history		no\r\nAttribute4	Feature	Categorical		Purpose		no\r\nAttribute5	Feature	Integer		Credit amount		no\r\nAttribute6	Feature	Categorical		Savings account/bonds		no\r\nAttribute7	Feature	Categorical	Other	Present employment since		no\r\nAttribute8	Feature	Integer		Installment rate in percentage of disposable income		no\r\nAttribute9	Feature	Categorical	Marital Status	Personal status and sex		no\r\nAttribute10	Feature	Categorical		Other debtors / guarantors		no\r\nAttribute11	Feature	Integer		Present residence since		no\r\nAttribute12	Feature	Categorical		Property		no\r\nAttribute13	Feature	Integer	Age	Age	years	no\r\nAttribute14	Feature	Categorical		Other installment plans		no\r\nAttribute15	Feature	Categorical	Other	Housing		no\r\nAttribute16	Feature	Integer		Number of existing credits at this bank		no\r\nAttribute17	Feature	Categorical	Occupation	Job		no\r\nAttribute18	Feature	Integer		Number of people being liable to provide maintenance for		no\r\nAttribute19	Feature	Binary		Telephone		no\r\nAttribute20	Feature	Binary	Other	foreign worker		no\r\nclass	Target	Binary		1 = Good, 2 = Bad		no"
-        # missing value in the row must be marked as "<missing>"!
-        # dataset_row = "4  12   4  21   1   4   3   3   1  42   3   1   2   1   1   0   0   1   0   <missing>   1   0   1   0   1"
-
         # Second API Call to generate the Data Imputation (di)
         system_prompt = epi_prompt + "\r\n\r\n###\r\n\r\n"
         user_prompt_prefix = (
@@ -317,27 +314,29 @@ class LLMImputer():
                 variable_type = dataset_variables_description[column]["variable_type"]
                 candidates = dataset_variables_description[column]["candidates"]
                 dataset_row += f'The {column} is {value} ([Description] variable_type: {variable_type}, {candidates}). '
-                
+
             user_prompt = user_prompt_prefix + user_prompt_suffix + dataset_row
             di_max_tokens = 256
             
-            num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
-            self.num_tokens += num_tokens
-            di = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
-            
+            if self.model.startswith("gpt"):
+                num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
+                self.num_tokens += num_tokens
+                if self.debug:
+                    print(f"- Number of tokens for DI: {num_tokens}")
+            di = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
+
             if di is None:
                 raise ValueError("The Data Imputation (di) module returned None.")
-            
+
             di = di.strip('"').strip("'").strip()
-            
+
             # convert to float if the value is numerical
             if dataset_variables_description[target_column]["variable_type"] == "Numerical":
                 di = float(di)
-                
+
             if self.debug:
                 print(f"- Imputed value: {di}")
-                print(f"- Number of tokens used for DI: {num_tokens}")
-                
+
             return (target_column, di)
 
         target_columns = list(X_row[X_row.isna()].index)

@@ -29,13 +29,29 @@ poetry run python scripts/get-datasets.py
 
 ## Missing values imputation
 
-### Setups
+### Setups for using LLMs
 
-To use LLM Imputer (`/scripts/imputation/modules/llmimputer.py`), please set your OpenAI API Key as an environmental variable.
-Create `/.env` as follows.
-```
-OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
-```
+To use LLM Imputer (`/scripts/imputation/modules/llmimputer.py`), please set environmental variabls in `/.env/`.
+
+Additionally, if you want to use Llama 2 via HuggingFaceTextGenInference, please host a server and set its URL. If you want to use Llama 2 via LlamaCPP, please install `llama-cpp-python` library using [these installation instructions](https://python.langchain.com/docs/integrations/llms/llamacpp#installation) and store [llama-2-7b-chat.Q4_0.gguf](https://huggingface.co/TheBloke/Llama-2-7b-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_0.gguf) model locally.
+
+- OpenAI
+  ```
+  OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+  ```
+- MistralAI
+  ```
+  MISTRALAI_API_KEY="YOUR_MISTRALAI_API_KEY"
+  ```
+- Llama 2
+  - via HuggingFaceTextGenInference
+    ```
+    LLAMA2_INFERENCE_SERVER_URL="YOUR_LLAMA2_INFERENCE_SERVER_URL"
+    ```
+  - via LlamaCPP
+    ```
+    LLAMA_MODEL_PATH="YOUR_LLAMA_MODEL_PATH"
+    ```
 
 ### Preprocess
 
@@ -89,7 +105,7 @@ poetry run python scripts/imputation/experiment.py --method meanmode
 
 #### LLM Imputer
 
-For LLMs, you can test several models. The default model is `gpt-4`.
+For LLMs, you can test several models. The default model is `gpt-4`. [Updated] MistralAI and Llama 2 are also available in addition to OpenAI.
 ```bash
 poetry run python scripts/imputation/experiment.py --method llm --llm_model gpt-3.5-turbo
 ```
@@ -98,8 +114,6 @@ You can also ask whether you want LLMs to behave like an expert or not. The defa
 ```bash
 poetry run python scripts/imputation/experiment.py --method llm --llm_role nonexpert
 ```
-
-TODO: Apply LangChain to enable non-OpenAI models (e.g. Llama 2)
 
 #### Specifying datasets
 
@@ -115,6 +129,7 @@ You can also evaluate downstream tasks by adding the downstream flag.
 poetry run python scripts/imputation/experiment.py --method meanmode --downstream
 ```
 
+#### Arguments
 ```bash
 poetry run python scripts/imputation/experiment.py
   [--method {meanmode, knn, rf, llm}] [--evaluate] [--downstream]
@@ -140,6 +155,16 @@ optional arguments:
 ### Modify LLM Imputer
 
 If you want to modify imputation method using LLMs, please edit `/scripts/imputation/modules/llmimputer.py`.
+
+Also, to set hyperparameters for llamaCpp, please edit the following codes in the file.
+```python
+llm = llamacpp.LlamaCpp(
+    model_path=os.getenv("LLAMA_MODEL_PATH"),
+    temperature=temperature,
+    max_tokens=max_tokens,
+    streaming=False,
+)
+```
 
 ## Getting started
 

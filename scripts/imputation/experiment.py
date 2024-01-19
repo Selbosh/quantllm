@@ -157,16 +157,16 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         openml_dirpath = data_dirpath / 'openml'
         description_file = openml_dirpath / f'{openml_id}/description.txt'
         description = description_file.read_text()
-        imputer = LLMImputer(X_categories=X_categories, dataset_description=description, model=args.llm_model, debug=args.debug)
+        imputer = LLMImputer(X_categories=X_categories, dataset_description=description, model=args.llm_model, role=args.llm_role, debug=args.debug)
 
     # Run imputation
     X_imputed = imputer.fit_transform(X_corrupted)
-    
+
     # Save imputed data
     X_imputed.to_csv(X_imputed_filepath, index=False)
-    
+
     endtime = time.perf_counter()
-    
+
     if args.method == 'llm':
         log = imputer.fetch_log()
         runtime = '{:.2f}'.format((endtime-starttime)/60)
