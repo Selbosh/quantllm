@@ -28,9 +28,7 @@ class LLMImputer():
         self.X_categories = X_categories
         self.dataset_description = dataset_description
         self.model = model
-        self.num_total_tokens = 0
-        self.num_input_tokens = 0
-        self.num_output_tokens = 0
+        self.num_tokens = 0
         self.debug = debug
         self.log = {}
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -52,11 +50,7 @@ class LLMImputer():
         X_copy = X_copy.apply(lambda x: self.__data_imputation(x, dataset_variable_description, epi_prompt) if x.isna().sum() > 0 else x, axis=1)
 
         if self.debug:
-            print(f"Total number of tokens used: {self.num_total_tokens}")
-
-        self.log["num_total_tokens"] = self.num_total_tokens
-        self.log["num_input_tokens"] = self.num_input_tokens
-        self.log["num_output_tokens"] = self.num_output_tokens
+            print(f"Total number of tokens used: {self.num_tokens}")
 
         return X_copy
 
@@ -187,8 +181,6 @@ class LLMImputer():
             {"role": "user", "content": user_prompt}
         ]
 
-        self.num_input_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, model)
-
         @backoff.on_exception(backoff.expo, openai.RateLimitError)
         def completions_with_backoff(**kwargs):
             return client.chat.completions.create(**kwargs)
@@ -215,9 +207,7 @@ class LLMImputer():
                 frequency_penalty=frequency_penalty
             )
             # Return the response content
-            response_content = response.choices[0].message.content
-            self.num_output_tokens = self.__num_tokens_from_messages(system_prompt, response_content, model)
-            return response_content
+            return response.choices[0].message.content
         except openai.APIConnectionError as e:
             print("The server could not be reached")
             print(e.__cause__)  # an underlying Exception, likely raised within httpx.
@@ -269,7 +259,7 @@ class LLMImputer():
         num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
         if self.debug:
             print(f"- Number of tokens used for EPI: {num_tokens}")
-        self.num_total_tokens += num_tokens
+        self.num_tokens += num_tokens
 
         epi_prompt = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
 
@@ -326,7 +316,7 @@ class LLMImputer():
             di_max_tokens = 256
             
             num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
-            self.num_total_tokens += num_tokens
+            self.num_tokens += num_tokens
             di = self.__gpt_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
             
             if di is None:

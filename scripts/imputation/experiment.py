@@ -173,10 +173,10 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         logs_filepath.parent.mkdir(parents=True, exist_ok=True)
         if not logs_filepath.exists():
             with open(logs_filepath, 'w') as f:
-                f.write('timestamp,openml_id,missingness,train_or_test,model,num_total_tokens,num_input_tokens,num_output_tokens,runtime\n')
+                f.write('timestamp,openml_id,missingness,train_or_test,model,num_tokens,runtime\n')
         with open(logs_filepath, 'a') as f:
             with open(logs_filepath, 'a') as f:
-                f.write(f'{timestamp},{openml_id},{missingness},{train_or_test},{log["model"]},{log["num_total_tokens"]},{log["num_input_tokens"]},{log["num_output_tokens"]},{runtime}\n')
+                f.write(f'{timestamp},{openml_id},{missingness},{train_or_test},{log["model"]},{log["num_tokens"]},{runtime}\n')
 
         epi_filepath = X_imputed_filepath.parent / f'{train_or_test}_epi.txt'
         epi_filepath.parent.mkdir(parents=True, exist_ok=True)
