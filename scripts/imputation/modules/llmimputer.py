@@ -246,7 +246,7 @@ class LLMImputer():
                 frequency_penalty=frequency_penalty,
                 n=1,
             )
-            response = completion.choices[0].text
+            response = completion.choices[0].message.content
 
         if self.debug:
             print(f"- Response: {response}")
