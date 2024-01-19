@@ -41,7 +41,8 @@ OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
 
 In the preprocessing step, you will split the original OpenML datasets into train and test subsets, and generate missing values.
 Please get OpenML datasets and store them in `/data/openml` in advance.
-The splitted complete datasets will be stored in `/data/working/complete`, and the incomplete datasets (datasets with missing values) will be stored in `/data/working/incomplete`.
+The splitted complete datasets will be stored in `/data/working/complete`, and the incomplete datasets (datasets with "real" missing values) will be stored in `/data/working/incomplete`.
+For the complete datasets, the code artificially generates missing values based on missingness patterns (MCAR, MAR, MNAR).
 
 ```bash
 poetry run python scripts/imputation/preprocess.py
@@ -49,10 +50,9 @@ poetry run python scripts/imputation/preprocess.py
 
 ```bash
 poetry run python scripts/imputation/preprocess.py
-  [--n_corrupted_rows N_CORRUPTED_ROWS] 
-  [--n_corrupted_columns N_CORRUPTED_COLUMNS] 
-  [--column_type {['categorical', 'numerical'], ['categorical'], ['numerical']}]
-  [--seed SEED]
+  [--n_corrupted_rows_train N_CORRUPTED_ROWS_TRAIN] [--n_corrupted_rows_test N_CORRUPTED_ROWS_TEST] 
+  [--n_corrupted_columns N_CORRUPTED_COLUMNS] [--test_size TEST_SIZE]
+  [--seed SEED] [--debug]
 
 required arguments:
   (none)
@@ -60,70 +60,81 @@ required arguments:
 optional arguments:
   --n_corrupted_rows_train  the default value is 120
   --n_corrupted_rows_test   the default value is 30
-  --n_corrupted_columns     the default value is 1
-  --column_type             you can specify target column type (default value: ['categorical', 'numerical'])
+  --n_corrupted_columns     the default value is 6. the code will generate max 6 corrupted columns.
+  --test_size               the default value is 0.2. fraction of testing subsets for train test split.
   --seed                    default value: 42
+  --debug                   display some additional logs to the terminal
 ```
 
 ### Experiment
 
-(Note) Please run `generate-missing-values.py` (see above) in advance. Incomplete datasets and `log.csv` is required to run.
+#### Note
+
+- Please run `generate-missing-values.py` (see above) in advance. Corrupted datasets (datasets with missing values) and the log file (`log.csv`) must be stored in `/data/working/complete` and `/data/working/incomplete`.
+- Evaluation is currently unavailable. Needs update.
+
+#### Imputation methods
 
 You can test multiple missing values imputation methods for the generated incomplete datasets.
 The following methods are available:
 - Mean/Mode (impute numerical values with mean and categorical values with mode)
 - K-nearest neighbors
 - Random Forest
-- LLM (GPT-4)
+- LLMs
 
 For example, if you want to impute with Mean/Mode method, run the following command.
 ```bash
-poetry run python scripts/imputation/experiment.py --method meanmode --debug --evaluate
+poetry run python scripts/imputation/experiment.py --method meanmode
 ```
 
-If you want to run experiments for a specific dataset, please give the OpenML ID, missingness, train/test. For example,
+#### LLM Imputer
+
+For LLMs, you can test several models. The default model is `gpt-4`.
 ```bash
-poetry run python scripts/imputation/experiment.py --method meanmode --debug --openml_id 31 --missingness MCAR --evaluate
+poetry run python scripts/imputation/experiment.py --method llm --llm_model gpt-3.5-turbo
 ```
+
+You can also ask whether you want LLMs to behave like an expert or not. The default role is `expert`.
+```bash
+poetry run python scripts/imputation/experiment.py --method llm --llm_role nonexpert
+```
+
+TODO: Apply LangChain to enable non-OpenAI models (e.g. Llama 2)
+
+#### Specifying datasets
+
+If you want to run experiments for a specific dataset, please give the OpenML ID, missingness. For example,
+```bash
+poetry run python scripts/imputation/experiment.py --method meanmode --openml_id 31 --missingness MCAR
+```
+
+#### Downstream task
 
 You can also evaluate downstream tasks by adding the downstream flag.
 ```bash
-poetry run python scripts/imputation/experiment.py --method meanmode --debug --evaluate --downstream
+poetry run python scripts/imputation/experiment.py --method meanmode --downstream
 ```
 
 ```bash
 poetry run python scripts/imputation/experiment.py
-  [--method {meanmode, knn, rf, llm}] [--debug]
-  [--openml_id OPENML_ID] [--missingness {MCAR, MAR, MNAR}]
-  [--evaluate] [--downstream]
+  [--method {meanmode, knn, rf, llm}] [--evaluate] [--downstream]
+  [--openml_id OPENML_ID] [--missingness {MCAR, MAR, MNAR}] [--dataset {['incomplete', 'complete'], incomplete, complete}]
+  [--llm_model LLM_MODEL] [--llm_role {expert, nonexpert}]
+  [--debug]
 
 required arguments:
   --method                  select a imputation method you want to apply (default value: meanmode)
 
 optional arguments:
-  --debug                   display some additional logs to the terminal
-  --openml_id               specify a target openml id
-  --missingness             specify a missingness pattern (MCAR or MAR or MNAR)
   --evaluate                calculate RMSE or Macro F1
   --downstream              evaluate downstream tasks
-```
-
-If you want to only evaluate for the imputed csv files, try
-
-```bash
-poetry run python scripts/imputation/evaluation.py
-  [--method {meanmode, knn, rf, llm}] [--debug]
-  [--openml_id OPENML_ID] [--missingness {MCAR, MAR, MNAR}]
-  [--downstream]
-
-required arguments:
-  --method                  select a imputation method you want to apply (default value: meanmode)
-
-optional arguments:
-  --debug                   display some additional logs to the terminal
   --openml_id               specify a target openml id
   --missingness             specify a missingness pattern (MCAR or MAR or MNAR)
-  --downstream              evaluate downstream tasks
+  --dataset                 specify a dataset type. complete or incomplete.
+  --llm_model               specify a llm model. the default is gpt-4
+  --llm_role                select whether the llm to be an expert or not.
+  --seed                    default value: 42
+  --debug                   display some additional logs to the terminal
 ```
 
 ### Modify LLM Imputer

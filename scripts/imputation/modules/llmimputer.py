@@ -11,8 +11,11 @@ from pathlib import Path
 import openai
 
 
+# TODO: Apply LangChain? to test on multiple LLM models
+
+
 class LLMImputer():
-    def __init__(self, na_value=np.nan, X_categories: dict = {}, dataset_description: str = "", model: str = 'gpt-4', debug: bool = False):
+    def __init__(self, na_value=np.nan, X_categories: dict = {}, dataset_description: str = "", model: str = 'gpt-4', role: str = 'expert', debug: bool = False):
         '''
         Args:
             - `na_value`: The value to be replaced with the imputation. Default is `np.nan`.
@@ -28,6 +31,7 @@ class LLMImputer():
         self.X_categories = X_categories
         self.dataset_description = dataset_description
         self.model = model
+        self.role = role
         self.num_tokens = 0
         self.debug = debug
         self.log = {}
@@ -40,8 +44,10 @@ class LLMImputer():
     def fit_transform(self, X: pd.DataFrame):
         X_copy = X.copy()
 
-        epi_prompt = self.__expert_prompt_initialization(self.dataset_description)
-        self.log["epi_prompt"] = epi_prompt
+        epi_prompt = ""
+        if self.role == "expert":
+            epi_prompt = self.__expert_prompt_initialization(self.dataset_description)
+            self.log["epi_prompt"] = epi_prompt
 
         dataset_variable_description = self.__generate_dataset_variables_description(X_copy)
 

@@ -16,13 +16,14 @@ from modules.evaluator import ImputationEvaluator
 
 def config_args():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--method', type=str, default='meanmode')
+    argparser.add_argument('--method', type=str, default='meanmode', choices=['meanmode', 'knn', 'rf', 'llm'])
     argparser.add_argument('--evaluate', action='store_true')
     argparser.add_argument('--downstream', action='store_true')
     argparser.add_argument('--openml_id', type=int, default=None)
-    argparser.add_argument('--missingness', type=str, default=None)
+    argparser.add_argument('--missingness', type=str, default=None, choices=['MCAR', 'MAR', 'MNAR'])
     argparser.add_argument('--dataset', nargs='*', type=str, default=['incomplete', 'complete'])
     argparser.add_argument('--llm_model', type=str, default='gpt-4')
+    argparser.add_argument('--llm_role', type=str, default='expert', choices=['expert', 'nonexpert'])
     argparser.add_argument('--debug', action='store_true')
     argparser.add_argument('--seed', type=int, default=42)
     return argparser.parse_args()
@@ -178,10 +179,11 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
             with open(logs_filepath, 'a') as f:
                 f.write(f'{timestamp},{openml_id},{missingness},{train_or_test},{log["model"]},{log["num_tokens"]},{runtime}\n')
 
-        epi_filepath = X_imputed_filepath.parent / f'{train_or_test}_epi.txt'
-        epi_filepath.parent.mkdir(parents=True, exist_ok=True)
-        with open(epi_filepath, 'w') as f:
-            f.write(log['epi_prompt'])
+        if args.llm_role == 'expert':
+            epi_filepath = X_imputed_filepath.parent / f'{train_or_test}_epi.txt'
+            epi_filepath.parent.mkdir(parents=True, exist_ok=True)
+            with open(epi_filepath, 'w') as f:
+                f.write(log['epi_prompt'])
 
     # Evaluate imputation
     if args.evaluate and X_groundtruth is not None:
@@ -249,7 +251,10 @@ def main():
 
     data_dirpath = Path(__file__).parents[2] / 'data'
     openml_dirpath = data_dirpath / 'openml'
+
     output_dirpath = data_dirpath / f'output/imputation/{args.method}'
+    if args.method == 'llm':
+        output_dirpath = data_dirpath / f'output/imputation/{args.method}/{args.llm_model}'
     output_dirpath.mkdir(parents=True, exist_ok=True)
 
     if 'complete' in args.dataset:

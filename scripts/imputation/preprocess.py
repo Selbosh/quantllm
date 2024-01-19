@@ -22,9 +22,7 @@ def config_args():
     argparser.add_argument('--n_corrupted_rows_train', type=int, default=120)
     argparser.add_argument('--n_corrupted_rows_test', type=int, default=30)
     argparser.add_argument('--n_corrupted_columns', type=int, default=6)
-    argparser.add_argument('--column_type', nargs='*', type=str, default=['categorical', 'numerical'])
     argparser.add_argument('--test_size', type=float, default=0.2)
-    argparser.add_argument('--dataset', nargs='*', type=str, default=['incomplete', 'complete'])
     argparser.add_argument('--debug', action='store_true')
     argparser.add_argument('--seed', type=int, default=42)
     return argparser.parse_args()
@@ -63,17 +61,6 @@ def dataset_extraction(args: argparse.Namespace, dataset_list: pd.DataFrame, gen
     # Extract datasets that have no missing values
     if generate:
         candidate_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] == 0.0]
-        if 'categorical' in args.column_type and 'numerical' in args.column_type:
-            return candidate_datasets
-
-        if 'categorical' in args.column_type:
-            # Extract datasets that have at least one categorical column
-            # Note: 'NumberOfSymbolicFeatures' includes the target column
-            candidate_datasets = candidate_datasets[(candidate_datasets['NumberOfSymbolicFeatures'] - 1.0) > 0.0]
-
-        if 'numerical' in args.column_type:
-            # Extract datasets that have at least one numerical column
-            candidate_datasets = candidate_datasets[candidate_datasets['NumberOfNumericFeatures'] > 0.0]
     else:
         candidate_datasets = candidate_datasets[candidate_datasets['NumberOfMissingValues'] > 0.0]
 
@@ -223,21 +210,19 @@ def main():
     openml_dirpath = data_dirpath / 'openml'
     working_dirpath = data_dirpath / 'working'
 
-    if 'complete' in args.dataset:
-        # Split complete datasets into train and test, and generate missing values for train and test subsets.
-        preprocess(
-            args=args, 
-            input_dirpath=openml_dirpath, output_dirpath=working_dirpath / 'complete', 
-            generate=True
-        )
+    # Split complete datasets into train and test, and generate missing values for train and test subsets.
+    preprocess(
+        args=args, 
+        input_dirpath=openml_dirpath, output_dirpath=working_dirpath / 'complete', 
+        generate=True
+    )
 
-    if 'incomplete' in args.dataset:
-        # Split incomplete datasets into train and test.
-        preprocess(
-            args=args, 
-            input_dirpath=openml_dirpath, output_dirpath=working_dirpath / 'incomplete', 
-            generate=False
-        )
+    # Split incomplete datasets into train and test.
+    preprocess(
+        args=args, 
+        input_dirpath=openml_dirpath, output_dirpath=working_dirpath / 'incomplete', 
+        generate=False
+    )
 
 
 if __name__ == "__main__":
