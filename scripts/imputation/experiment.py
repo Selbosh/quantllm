@@ -157,7 +157,9 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         openml_dirpath = data_dirpath / 'openml'
         description_file = openml_dirpath / f'{openml_id}/description.txt'
         description = description_file.read_text()
-        imputer = LLMImputer(X_categories=X_categories, dataset_description=description, model=args.llm_model, role=args.llm_role, debug=args.debug)
+        prompts_filepath = data_dirpath / 'working' / 'prompts.json'
+        prompts = json.loads(prompts_filepath.read_text())
+        imputer = LLMImputer(X_categories=X_categories, prompts=prompts, dataset_description=description, model=args.llm_model, role=args.llm_role, debug=args.debug)
 
     # Run imputation
     X_imputed = imputer.fit_transform(X_corrupted)

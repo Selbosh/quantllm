@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import tiktoken
+import re
 
 import openai
 from langchain.chains import LLMChain
@@ -17,7 +18,7 @@ from langchain_experimental.chat_models import Llama2Chat
 
 
 class LLMImputer():
-    def __init__(self, na_value=np.nan, X_categories: dict = {}, dataset_description: str = "", model: str = 'gpt-4', role: str = 'expert', debug: bool = False):
+    def __init__(self, na_value=np.nan, prompts: dict = {}, X_categories: dict = {}, dataset_description: str = "", model: str = 'gpt-4', role: str = 'expert', debug: bool = False):
         '''
         Args:
             - `na_value`: The value to be replaced with the imputation. Default is `np.nan`.
@@ -35,6 +36,7 @@ class LLMImputer():
         self.debug = debug
         self.log = {}
         self.rate_limit_per_minute = 500
+        self.prompts = prompts
         self.log["model"] = self.model
 
     def fit_transform(self, X: pd.DataFrame):
@@ -218,18 +220,20 @@ class LLMImputer():
                     model_path=os.getenv("LLAMA_MODEL_PATH"),
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    n_ctx=2048,
+                    n_gpu_layers=2,
+                    repeat_penalty=frequency_penalty,
                     streaming=False,
+                    verbose=self.debug,
                 )
             llama_model = Llama2Chat(llm=llm)
             llama_messages = [
                 SystemMessage(content=system_prompt),
-                MessagesPlaceholder(variable_name='chat_history'),
                 HumanMessagePromptTemplate.from_template('{text}'),
             ]
             prompt_template = ChatPromptTemplate.from_messages(llama_messages)
-            memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
-            chain = LLMChain(llm=llama_model, prompt=prompt_template, memory=memory)
-            response = chain.run(text=user_prompt)
+            chain = LLMChain(llm=llama_model, prompt=prompt_template)
+            response = chain.invoke({'text': user_prompt})['text']
         elif model.startswith("lmstudio"):
             base_url = os.getenv("LMSTUDIO_INFERENCE_SERVER_URL")
             if base_url is None:
@@ -257,31 +261,9 @@ class LLMImputer():
         Expert Prompt Initialization (EPI) module
         """
         # First API Call to generate the Expert Prompt Initialization (epi)
-        system_prompt = (
-                            "I am going to give you a description of a dataset. "
-                            "Please read it and then tell me which hypothetical "
-                            "persona would be the best domain expert on the content "
-                            "of the data set if I had questions about specific variables, "
-                            "attributes or properties.\r\n"
-                            "I don't need a data scientist or machine learning expert, "
-                            "and I don't have questions about the analysis of the data"
-                            "but about specific attributes and values.\r\n"
-                            "Please do not give me a list. Just give me a detailed description of a "
-                            "(single) person who really knows a lot about the field in which the dataset was generated.\r\n"
-                            "Do not use your knowledge about the author of the data record as a guide. "
-                            "Do not mention the dataset or anything about it. Do not explain what you do. "
-                            "Just give the description and be concise. No Intro like 'An expert would be'."
-                        )
-        user_prompt_prefix = (
-                            "Here is the description of the dataset:\r\n\r\n"
-                        )
-        user_prompt_suffix = (
-                            "\r\n\r\n\r\n\r\n"
-                            "Remember: Do not mention the dataset in your description. "
-                            "Don\'t explain what you do. Just give me a concise description "
-                            "of a hypthetical person, that would be an expert on this.\r\n"
-                            "Formulate this as an instruction like \"You are an ...\"."
-                        )
+        system_prompt = self.prompts["expert_prompt_initialization"]["system_prompt"]
+        user_prompt_prefix = self.prompts["expert_prompt_initialization"]["user_prompt_prefix"]
+        user_prompt_suffix = self.prompts["expert_prompt_initialization"]["user_prompt_suffix"]
         user_prompt = user_prompt_prefix + dataset_description + user_prompt_suffix
         epi_max_tokens = 2048
 
@@ -303,25 +285,10 @@ class LLMImputer():
         Data Imputation (DI) module
         """
         # Second API Call to generate the Data Imputation (di)
-        system_prompt = epi_prompt + "\r\n\r\n###\r\n\r\n"
-        user_prompt_prefix = (
-                                "THE PROBLEM: We would like to analyze a data set, "
-                                "but unfortunately this data set has some missing values."
-                                "\r\n\r\n###\r\n\r\n"
-                            )
-        user_prompt_suffix = (
-                                "YOUR TASK: "
-                                "Please use your years of experience and the knowledge you have acquired "
-                                "in the course of your work to provide an estimate of what value the missing value "
-                                "(marked as <missing>) in the following row of the dataset would most likely have."
-                                "\r\n\r\n"
-                                "IMPORTANT: "
-                                "Please do not provide any explanation or clarification. "
-                                "Only answer with the respective value in quotation marks (\"\")."
-                                "\r\n\r\n"
-                                "Here is a set of values from that row, along with their data type and the column description:"
-                                "\r\n\r\n"
-                            )
+        system_prompt_prefix = epi_prompt if self.role == "expert" else self.prompts["non_expert_prompt"]
+        system_prompt = system_prompt_prefix + self.prompts["data_imputation"]["system_prompt_suffix"]
+        user_prompt_prefix = self.prompts["data_imputation"]["user_prompt_prefix"]
+        user_prompt_suffix = self.prompts["data_imputation"]["user_prompt_suffix"]
 
         # run imputation for each target column which has missing values
         def __impute(target_column):
@@ -335,7 +302,7 @@ class LLMImputer():
                 dataset_row += f'The {column} is {value} ([Description] variable_type: {variable_type}, {candidates}). '
 
             user_prompt = user_prompt_prefix + user_prompt_suffix + dataset_row
-            di_max_tokens = 256
+            di_max_tokens = 148  # 256
             
             if self.model.startswith("gpt"):
                 num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
@@ -344,14 +311,25 @@ class LLMImputer():
                     print(f"- Number of tokens for DI: {num_tokens}")
             di = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
 
+            # find the imputed value from the response
+            # the imputed value is in ("{imputed value}") format
+            # Use regex to find the imputed value
+            # re_result = re.search(r'"(.*)"', di)
+            re_result = re.search(r'"(.*)"', di)
+            if re_result:
+                di = re_result.group()
+
             if di is None:
                 raise ValueError("The Data Imputation (di) module returned None.")
 
-            di = di.strip('"').strip("'").strip()
+            di = di.strip('"').strip("'").strip("{").strip("}").strip()
 
             # convert to float if the value is numerical
             if dataset_variables_description[target_column]["variable_type"] == "Numerical":
-                di = float(di)
+                try:
+                    di = float(di)
+                except ValueError:
+                    di = 0.0
 
             if self.debug:
                 print(f"- Imputed value: {di}")

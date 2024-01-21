@@ -29,7 +29,38 @@ poetry run python scripts/get-datasets.py
 
 ## Missing values imputation
 
-### Setups for using LLMs
+### Preprocess
+
+In the preprocessing step, you will split the original OpenML datasets into train and test subsets, and generate missing values.
+Please get OpenML datasets and store them in `/data/openml` in advance.
+The splitted complete datasets will be stored in `/data/working/complete`, and the incomplete datasets (datasets with "real" missing values) will be stored in `/data/working/incomplete`.
+For the complete datasets, the code artificially generates missing values based on missingness patterns (MCAR, MAR, MNAR).
+
+```bash
+poetry run python scripts/imputation/preprocess.py
+```
+
+```bash
+poetry run python scripts/imputation/preprocess.py
+  [--n_corrupted_rows_train N_CORRUPTED_ROWS_TRAIN] [--n_corrupted_rows_test N_CORRUPTED_ROWS_TEST] 
+  [--n_corrupted_columns N_CORRUPTED_COLUMNS] [--test_size TEST_SIZE]
+  [--seed SEED] [--debug]
+
+required arguments:
+  (none)
+
+optional arguments:
+  --n_corrupted_rows_train  the default value is 120
+  --n_corrupted_rows_test   the default value is 30
+  --n_corrupted_columns     the default value is 6. the code will generate max 6 corrupted columns.
+  --test_size               the default value is 0.2. fraction of testing subsets for train test split.
+  --seed                    default value: 42
+  --debug                   display some additional logs to the terminal
+```
+
+### LLM Imputer
+
+#### Setups for using LLMs
 
 You can use OpenAI API, Llama 2 or Mistral AI API via LangChain.
 You can also use other LLMs that behave like OpenAI API, e.g. LM Studio.
@@ -63,34 +94,32 @@ Instructions for each model are the following:
   LMSTUDIO_INFERENCE_SERVER_URL="http://localhost:1234/v1"
   ```
 
-### Preprocess
+#### Prompt engineering
 
-In the preprocessing step, you will split the original OpenML datasets into train and test subsets, and generate missing values.
-Please get OpenML datasets and store them in `/data/openml` in advance.
-The splitted complete datasets will be stored in `/data/working/complete`, and the incomplete datasets (datasets with "real" missing values) will be stored in `/data/working/incomplete`.
-For the complete datasets, the code artificially generates missing values based on missingness patterns (MCAR, MAR, MNAR).
+To edit prompts, edit `/data/working/prompts.json`.
 
-```bash
-poetry run python scripts/imputation/preprocess.py
+```json
+{
+  "expert_prompt_initialization": {
+    "system_prompt": "...",
+    "user_prompt_prefix": "...",
+    "user_prompt_suffix": "..."
+  },
+  "non_expert_prompt": "...",
+  "data_imputation": {
+    "system_prompt_suffix": "...",
+    "user_prompt_prefix": "..."
+  }
+}
 ```
 
-```bash
-poetry run python scripts/imputation/preprocess.py
-  [--n_corrupted_rows_train N_CORRUPTED_ROWS_TRAIN] [--n_corrupted_rows_test N_CORRUPTED_ROWS_TEST] 
-  [--n_corrupted_columns N_CORRUPTED_COLUMNS] [--test_size TEST_SIZE]
-  [--seed SEED] [--debug]
+For each row with missing values, two types of requests to LLMs will be done.
 
-required arguments:
-  (none)
+1. **Expert prompt initialization**: AAsk LLMs to make prompts for LLMs to act like experts. System prompt: `system_prompt`. User prompt: `user_prompt_prefix + dataset_description + user_prompt_suffix`. `dataset_description` is a description of the dataset downloaded from OpenML.
+2. **Data Imputation**: Using the expert prompt, ask LLMs to guess a missing value. System prompt: `epi_prompt` + `system_prompt_suffix`. User prompt: `
 
-optional arguments:
-  --n_corrupted_rows_train  the default value is 120
-  --n_corrupted_rows_test   the default value is 30
-  --n_corrupted_columns     the default value is 6. the code will generate max 6 corrupted columns.
-  --test_size               the default value is 0.2. fraction of testing subsets for train test split.
-  --seed                    default value: 42
-  --debug                   display some additional logs to the terminal
-```
+(Note)
+There may be multiple missing values in the target row. This will be done by repeating step 2 for each missing value in the target row. (Other missing values are hidden)
 
 ### Experiment
 
