@@ -8,6 +8,6 @@
   "data_imputation": {
     "system_prompt_suffix": "\r\n\r\n###\r\n\r\n",
     "user_prompt_prefix": "THE PROBLEM: We would like to analyze a data set, but unfortunately this data set has some missing values.\r\n\r\n###\r\n\r\n",
-    "user_prompt_suffix": "YOUR TASK: Please use your years of experience and the knowledge you have acquired in the course of your work to provide an estimate of what value the missing value (marked as <missing>) in the following row of the dataset would most likely have.\r\n\r\nIMPORTANT: Please do not provide any explanation or clarification. Only answer with the respective value in quotation marks (\"\").\r\n\r\n"
+    "user_prompt_suffix": "YOUR TASK: Please use your years of experience and the knowledge you have acquired in the course of your work to provide an estimate of what value the missing value (marked as <missing>) in the following row of the dataset would most likely have.\r\n\r\nIMPORTANT: Please do not provide any explanation or clarification.\nYOUR OUTPUT FORMAT (JSON): {\"output\": value}\r\n\r\n"
   }
 }

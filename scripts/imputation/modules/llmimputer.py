@@ -53,7 +53,7 @@ class LLMImputer():
         # Rows with no missing values will be skipped
         X_copy = X_copy.apply(lambda x: self.__data_imputation(x, dataset_variable_description, epi_prompt) if x.isna().sum() > 0 else x, axis=1)
 
-        if self.llm_model.startswith("gpt") and self.debug:
+        if self.model.startswith("gpt") and self.debug:
             print(f"Total number of tokens used: {self.num_tokens}")
 
         self.log["num_tokens"] = self.num_tokens
@@ -132,14 +132,14 @@ class LLMImputer():
         for column in X_columns:
             if column in X_categorical_columns:
                 role = "Feature"
-                variable_type = "Categorical"
+                variable_type = "categorical"
                 description = ""
                 category_list = self.X_categories[column]
-                candidates = f'categories: {category_list}'
+                candidates = f'candidates are {category_list}'
                 missing_values = "no"
             else:
                 role = "Feature"
-                variable_type = "Numerical"
+                variable_type = "numerical"
                 description = ""
                 candidates = f"range from {X[column].min()} to { X[column].max()}"
                 missing_values = "no"
@@ -248,6 +248,7 @@ class LLMImputer():
                 temperature=temperature,
                 max_tokens=max_tokens,
                 frequency_penalty=frequency_penalty,
+                response_format='{type: "json_object"}',
                 n=1,
             )
             response = completion.choices[0].message.content
@@ -260,11 +261,14 @@ class LLMImputer():
         """
         Expert Prompt Initialization (EPI) module
         """
+        if self.debug:
+            print("Starting Expert Prompt Initialization (EPI) module...")
         # First API Call to generate the Expert Prompt Initialization (epi)
         system_prompt = self.prompts["expert_prompt_initialization"]["system_prompt"]
         user_prompt_prefix = self.prompts["expert_prompt_initialization"]["user_prompt_prefix"]
         user_prompt_suffix = self.prompts["expert_prompt_initialization"]["user_prompt_suffix"]
         user_prompt = user_prompt_prefix + dataset_description + user_prompt_suffix
+
         epi_max_tokens = 2048
 
         if self.model.startswith("gpt"):
@@ -274,6 +278,10 @@ class LLMImputer():
             self.num_tokens += num_tokens
 
         epi_prompt = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
+
+        if self.debug:
+            print("Finished Expert Prompt Initialization (EPI) module.")
+            print(f"- EPI Prompt: {epi_prompt}")
 
         if epi_prompt is None:
             raise ValueError("The Expert Prompt Initialization (epi) module returned None.")
@@ -299,7 +307,7 @@ class LLMImputer():
                 value = "<missing>" if column == target_column else X_row.loc[column]
                 variable_type = dataset_variables_description[column]["variable_type"]
                 candidates = dataset_variables_description[column]["candidates"]
-                dataset_row += f'The {column} is {value} ([Description] variable_type: {variable_type}, {candidates}). '
+                dataset_row += f'The {column} is {value} ({variable_type} variable, {candidates}). '
 
             user_prompt = user_prompt_prefix + user_prompt_suffix + dataset_row
             di_max_tokens = 148  # 256
@@ -315,20 +323,26 @@ class LLMImputer():
             # the imputed value is in ("{imputed value}") format
             # Use regex to find the imputed value
             # re_result = re.search(r'"(.*)"', di)
-            re_result = re.search(r'"(.*)"', di)
-            if re_result:
-                di = re_result.group()
-
+            # re_result = re.search(r'"(.*)"', di)
+            # re1_result = re.search(r':\s(.*)', di)
+            re1_result = re.findall(r':\s"?(.*)"?}?', di)
+            if len(re1_result) > 0:
+                di = re1_result[0]
+            else:
+                re2_result = re.findall('"([^"]*)"', di)
+                di = re2_result[0] if re2_result else di
+            di = di.strip(":").strip('"').strip("'").strip("{").strip("}").strip().strip('"')
             if di is None:
                 raise ValueError("The Data Imputation (di) module returned None.")
 
-            di = di.strip('"').strip("'").strip("{").strip("}").strip()
-
             # convert to float if the value is numerical
-            if dataset_variables_description[target_column]["variable_type"] == "Numerical":
+            if dataset_variables_description[target_column]["variable_type"] == "numerical":
+                # Check if compatible with float
                 try:
                     di = float(di)
-                except ValueError:
+                except Exception as e:
+                    if self.debug:
+                        print(f"- Error: {e}")
                     di = 0.0
 
             if self.debug:

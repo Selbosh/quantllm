@@ -19,9 +19,9 @@ def config_args():
         argparse.Namespace: The command line arguments.
     """
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--n_corrupted_rows_train', type=int, default=120)
-    argparser.add_argument('--n_corrupted_rows_test', type=int, default=30)
-    argparser.add_argument('--n_corrupted_columns', type=int, default=6)
+    argparser.add_argument('--n_corrupted_rows_train', type=int, default=40)
+    argparser.add_argument('--n_corrupted_rows_test', type=int, default=10)
+    argparser.add_argument('--n_corrupted_columns', type=int, default=3)
     argparser.add_argument('--test_size', type=float, default=0.2)
     argparser.add_argument('--debug', action='store_true')
     argparser.add_argument('--seed', type=int, default=42)

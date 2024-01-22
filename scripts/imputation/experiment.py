@@ -47,15 +47,14 @@ def experiment(args: argparse.Namespace, timestamp: str, dataset_type: str, open
         groundtruth_dirpath = input_dirpath / 'original'
         corrupted_dirpath = input_dirpath / 'corrupted'
 
-    logs = pd.read_csv(input_dirpath / 'logs.csv', header=0).drop('train_or_test', axis=1)
+    logs = pd.read_csv(input_dirpath / 'logs.csv', header=0).loc[:, ['openml_id', 'missingness']].drop_duplicates()
+    if args.openml_id is not None:
+        logs = logs[logs.openml_id == args.openml_id].drop_duplicates()
+    if args.missingness is not None:
+        logs = logs[logs.missingness == args.missingness].drop_duplicates()
 
     for log in tqdm(logs.itertuples(), total=len(logs)):
         openml_id, missingness = log.openml_id, log.missingness
-
-        if args.openml_id is not None and args.openml_id != openml_id:
-            continue
-        elif args.missingness is not None and args.missingness != missingness:
-            continue
 
         X_groundtruth_train_filepath = None
         X_groundtruth_test_filepath = None
@@ -128,8 +127,7 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
     '''
     starttime = time.perf_counter()
 
-    if args.debug:
-        print(f'Imputing OpenML Id: {openml_id}, Missingness: {missingness}, Train/Test: {train_or_test}, Method: {args.method}')
+    print(f'# Imputing OpenML Id: {openml_id}, Missingness: {missingness}, Train/Test: {train_or_test}, Method: {args.method}')
 
     with open(X_categories_filepath, 'r') as f:
         X_categories = json.load(f)
