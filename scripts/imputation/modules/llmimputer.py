@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import tiktoken
 import re
+import json
 
 import openai
 from langchain.chains import LLMChain
@@ -15,10 +16,11 @@ from langchain_openai.chat_models import ChatOpenAI
 from langchain_mistralai.chat_models import ChatMistralAI
 from langchain_community.llms import llamacpp, huggingface_text_gen_inference
 from langchain_experimental.chat_models import Llama2Chat
+from pathlib import Path
 
 
 class LLMImputer():
-    def __init__(self, na_value=np.nan, prompts: dict = {}, X_categories: dict = {}, dataset_description: str = "", model: str = 'gpt-4', role: str = 'expert', debug: bool = False):
+    def __init__(self, na_value=np.nan, prompts: dict = {}, model: str = 'gpt-4', role: str = 'expert', X_categories: dict = {}, dataset_description: str = "", log_filepath: Path = None, debug: bool = False):
         '''
         Args:
             - `na_value`: The value to be replaced with the imputation. Default is `np.nan`.
@@ -28,16 +30,59 @@ class LLMImputer():
             - `debug`: If `True`, print debug messages. Default is `False`.
         '''
         self.na_value = na_value
-        self.X_categories = X_categories
-        self.dataset_description = dataset_description
+        self.prompts = prompts
         self.model = model
         self.role = role
-        self.num_tokens = 0 if self.model.startswith("gpt") else None
+        self.X_categories = X_categories
+        self.dataset_description = dataset_description
+        self.log_filepath = log_filepath
+
+        self.n_input_tokens_tiktoken = 0 if self.model.startswith("gpt") else None
+        self.n_tokens = {"n_input_tokens": 0, "n_input_tokens_tiktoken": 0, "n_output_tokens": 0, "n_total_tokens": 0}
         self.debug = debug
-        self.log = {}
-        self.rate_limit_per_minute = 500
-        self.prompts = prompts
-        self.log["model"] = self.model
+        self.log = {
+            "model": self.model,
+            "role": self.role,
+            "na_value": f'{self.na_value}',
+            "prompts": self.prompts,
+            "n_requests": {
+                "epi": 0,
+                "di": 0
+            },
+            "n_tokens": {
+                "epi": {
+                    "n_input_tokens": 0,
+                    "n_output_tokens": 0,
+                    "n_total_tokens": 0,
+                    "n_input_tokens_tiktoken": 0
+                },
+                "di": {
+                    "n_input_tokens": 0,
+                    "n_output_tokens": 0,
+                    "n_total_tokens": 0,
+                    "n_input_tokens_tiktoken": 0
+                },
+                "total": {
+                    "n_input_tokens": 0,
+                    "n_output_tokens": 0,
+                    "n_total_tokens": 0,
+                    "n_input_tokens_tiktoken": 0
+                }
+            }
+        }
+        self.__save_log()
+
+    def __save_log(self):
+        """
+        Save the log to a file.
+
+        Args:
+            - `log_filepath`: The path to the log file.
+        """
+        if self.log_filepath is None:
+            return
+        with open(self.log_filepath, "w") as f:
+            json.dump(self.log, f, indent=2)
 
     def fit_transform(self, X: pd.DataFrame):
         X_copy = X.copy()
@@ -45,7 +90,6 @@ class LLMImputer():
         epi_prompt = ""
         if self.role == "expert":
             epi_prompt = self.__expert_prompt_initialization(self.dataset_description)
-            self.log["epi_prompt"] = epi_prompt
 
         dataset_variable_description = self.__generate_dataset_variables_description(X_copy)
 
@@ -53,10 +97,10 @@ class LLMImputer():
         # Rows with no missing values will be skipped
         X_copy = X_copy.apply(lambda x: self.__data_imputation(x, dataset_variable_description, epi_prompt) if x.isna().sum() > 0 else x, axis=1)
 
-        if self.model.startswith("gpt") and self.debug:
-            print(f"Total number of tokens used: {self.num_tokens}")
+        if self.debug:
+            print(f"Number of tokens: {self.n_tokens}")
 
-        self.log["num_tokens"] = self.num_tokens
+        self.__save_log()
 
         return X_copy
 
@@ -143,7 +187,7 @@ class LLMImputer():
                 description = ""
                 candidates = f"range from {X[column].min()} to { X[column].max()}"
                 missing_values = "no"
-            
+
             if column in X_missing_columns:
                 missing_values = "yes"
 
@@ -185,17 +229,34 @@ class LLMImputer():
         ]
 
         response = None
+
+        # Save the number of tokens used for the API call
+        n_tokens = {
+            "n_input_tokens": 0,
+            "n_output_tokens": 0,
+            "n_total_tokens": 0
+        }
+
+        model_response = model
+
         if model.startswith("gpt"):
-            chat = ChatOpenAI(
-                api_key=os.getenv("OPENAI_API_KEY"),
+            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            chat = client.chat.completions.create(
                 model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
                 frequency_penalty=frequency_penalty,
-                n=1
+                max_tokens=max_tokens,  # The maximum number of tokens that can be generated in the chat completion.
+                n=1,
+                temperature=temperature
             )
-            ai_message = chat(messages)
-            response = ai_message.content
+            response = chat.choices[0].message.content
+            n_tokens["n_input_tokens"] = chat.usage.prompt_tokens
+            n_tokens["n_output_tokens"] = chat.usage.completion_tokens
+            n_tokens["n_total_tokens"] = chat.usage.total_tokens
+            model_response = chat.model
         elif model.startswith("mistral"):
             chat = ChatMistralAI(
                 api_key=os.getenv("MISTRALAI_API_KEY"),
@@ -239,23 +300,27 @@ class LLMImputer():
             if base_url is None:
                 raise ValueError("Please set the environment variable LMSTUDIO_INFERENCE_SERVER_URL.")
             client = openai.OpenAI(base_url=base_url, api_key="not-needed")
-            completion = client.chat.completions.create(
+            chat = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=temperature,
-                max_tokens=max_tokens,
                 frequency_penalty=frequency_penalty,
-                response_format='{type: "json_object"}',
+                max_tokens=max_tokens,  # The maximum number of tokens that can be generated in the chat completion.
                 n=1,
+                temperature=temperature
             )
-            response = completion.choices[0].message.content
+            response = chat.choices[0].message.content
+            n_tokens["n_input_tokens"] = chat.usage.prompt_tokens
+            n_tokens["n_output_tokens"] = chat.usage.completion_tokens
+            n_tokens["n_total_tokens"] = chat.usage.total_tokens
 
         if self.debug:
             print(f"- Response: {response}")
-        return response
+            print(f"- Number of tokens: {n_tokens}")
+
+        return (response, n_tokens)
 
     def __expert_prompt_initialization(self, dataset_description: str):
         """
@@ -272,12 +337,18 @@ class LLMImputer():
         epi_max_tokens = 2048
 
         if self.model.startswith("gpt"):
-            num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
+            n_input_tokens_tiktoken = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
             if self.debug:
-                print(f"- Number of tokens for EPI: {num_tokens}")
-            self.num_tokens += num_tokens
+                print(f"- Tiktoken: {n_input_tokens_tiktoken} tokens")
+            self.n_input_tokens_tiktoken += n_input_tokens_tiktoken
 
-        epi_prompt = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
+        epi_prompt, ept_n_tokens = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
+        self.log["prompts"]["expert_prompt"] = epi_prompt
+        self.log["n_tokens"]["epi"] = ept_n_tokens
+        self.log["n_tokens"]["total"]["n_input_tokens"] = self.log["n_tokens"]["epi"]["n_input_tokens"] + self.log["n_tokens"]["di"]["n_input_tokens"]
+        self.log["n_tokens"]["total"]["n_output_tokens"] = self.log["n_tokens"]["epi"]["n_output_tokens"] + self.log["n_tokens"]["di"]["n_output_tokens"]
+        self.log["n_tokens"]["total"]["n_total_tokens"] = self.log["n_tokens"]["epi"]["n_total_tokens"] + self.log["n_tokens"]["di"]["n_total_tokens"]
+        self.log["n_requests"]["epi"] += 1
 
         if self.debug:
             print("Finished Expert Prompt Initialization (EPI) module.")
@@ -286,16 +357,21 @@ class LLMImputer():
         if epi_prompt is None:
             raise ValueError("The Expert Prompt Initialization (epi) module returned None.")
 
+        self.__save_log()
+
         return epi_prompt
 
-    def __data_imputation(self, X_row: pd.Series, dataset_variables_description: dict, epi_prompt: str):
+    def __data_imputation(self, X_row: pd.Series, dataset_variables_description: dict, expert_prompt: str | None):
         """
         Data Imputation (DI) module
         """
         # Second API Call to generate the Data Imputation (di)
-        system_prompt_prefix = epi_prompt if self.role == "expert" else self.prompts["non_expert_prompt"]
-        system_prompt = system_prompt_prefix + self.prompts["data_imputation"]["system_prompt_suffix"]
+        if self.role == "expert":
+            system_prompt = expert_prompt + self.prompts["data_imputation"]["system_prompt_suffix"]
+        else:
+            system_prompt = self.prompts["non_expert_prompt"] + self.prompts["data_imputation"]["system_prompt"]
         user_prompt_prefix = self.prompts["data_imputation"]["user_prompt_prefix"]
+        user_prompt_infix = self.prompts["data_imputation"]["user_prompt_infix"]
         user_prompt_suffix = self.prompts["data_imputation"]["user_prompt_suffix"]
 
         # run imputation for each target column which has missing values
@@ -304,20 +380,31 @@ class LLMImputer():
             for column in list(X_row.index):
                 if column != target_column and pd.isna(X_row.loc[column]):
                     continue
-                value = "<missing>" if column == target_column else X_row.loc[column]
-                variable_type = dataset_variables_description[column]["variable_type"]
-                candidates = dataset_variables_description[column]["candidates"]
-                dataset_row += f'The {column} is {value} ({variable_type} variable, {candidates}). '
+                if column == target_column:
+                    value = "<missing>"
+                    variable_type = dataset_variables_description[column]["variable_type"]
+                    candidates = dataset_variables_description[column]["candidates"]
+                    dataset_row += f'The {column} is {value} ({variable_type} variable, {candidates}). '
+                else:
+                    value = X_row.loc[column]
+                    dataset_row += f'The {column} is {value}. '
 
-            user_prompt = user_prompt_prefix + user_prompt_suffix + dataset_row
+            user_prompt = user_prompt_prefix + user_prompt_infix + dataset_row + user_prompt_suffix
             di_max_tokens = 148  # 256
-            
+
             if self.model.startswith("gpt"):
                 num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
-                self.num_tokens += num_tokens
+                self.n_input_tokens_tiktoken += num_tokens
                 if self.debug:
                     print(f"- Number of tokens for DI: {num_tokens}")
-            di = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
+            di, di_n_tokens = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
+            self.log["n_tokens"]["di"]["n_input_tokens"] += di_n_tokens["n_input_tokens"]
+            self.log["n_tokens"]["di"]["n_output_tokens"] += di_n_tokens["n_output_tokens"]
+            self.log["n_tokens"]["di"]["n_total_tokens"] += di_n_tokens["n_total_tokens"]
+            self.log["n_tokens"]["total"]["n_input_tokens"] = self.log["n_tokens"]["epi"]["n_input_tokens"] + self.log["n_tokens"]["di"]["n_input_tokens"]
+            self.log["n_tokens"]["total"]["n_output_tokens"] = self.log["n_tokens"]["epi"]["n_output_tokens"] + self.log["n_tokens"]["di"]["n_output_tokens"]
+            self.log["n_tokens"]["total"]["n_total_tokens"] = self.log["n_tokens"]["epi"]["n_total_tokens"] + self.log["n_tokens"]["di"]["n_total_tokens"]
+            self.log["n_requests"]["di"] += 1
 
             # find the imputed value from the response
             # the imputed value is in ("{imputed value}") format
@@ -325,13 +412,23 @@ class LLMImputer():
             # re_result = re.search(r'"(.*)"', di)
             # re_result = re.search(r'"(.*)"', di)
             # re1_result = re.search(r':\s(.*)', di)
-            re1_result = re.findall(r':\s"?(.*)"?}?', di)
+            regex_1 = r'"output":\s?["\']?(.*)["\']?\s?}?'
+            regex_2 = r':\s?["\']?(.*)["\']?\s?}?'
+            regex_3 = r'"([^"]*)"'
+
+            re1_result = re.findall(regex_1, di)
+            re2_result = re.findall(regex_2, di)
+            re3_result = re.findall(regex_3, di)
+
             if len(re1_result) > 0:
                 di = re1_result[0]
+            elif len(re2_result) > 0:
+                di = re2_result[0]
+            elif len(re3_result) > 0:
+                di = re3_result[0]
             else:
-                re2_result = re.findall('"([^"]*)"', di)
-                di = re2_result[0] if re2_result else di
-            di = di.strip(":").strip('"').strip("'").strip("{").strip("}").strip().strip('"')
+                di = di
+            di = di.strip(":").strip('"').strip("'").strip("{").strip("}").strip().strip('"').replace("output", "").replace("'", "")
             if di is None:
                 raise ValueError("The Data Imputation (di) module returned None.")
 
@@ -347,6 +444,8 @@ class LLMImputer():
 
             if self.debug:
                 print(f"- Imputed value: {di}")
+
+            self.__save_log()
 
             return (target_column, di)
 

@@ -157,7 +157,8 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         description = description_file.read_text()
         prompts_filepath = data_dirpath / 'working' / 'prompts.json'
         prompts = json.loads(prompts_filepath.read_text())
-        imputer = LLMImputer(X_categories=X_categories, prompts=prompts, dataset_description=description, model=args.llm_model, role=args.llm_role, debug=args.debug)
+        log_filepath = X_imputed_filepath.parent / f'log_{train_or_test}_{timestamp}.json'
+        imputer = LLMImputer(X_categories=X_categories, prompts=prompts, dataset_description=description, model=args.llm_model, role=args.llm_role, log_filepath=log_filepath, debug=args.debug)
 
     # Run imputation
     X_imputed = imputer.fit_transform(X_corrupted)
@@ -174,16 +175,16 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         logs_filepath.parent.mkdir(parents=True, exist_ok=True)
         if not logs_filepath.exists():
             with open(logs_filepath, 'w') as f:
-                f.write('timestamp,openml_id,missingness,train_or_test,model,num_tokens,runtime\n')
+                f.write('timestamp,openml_id,missingness,train_or_test,model,n_input_tokens,n_output_tokens,n_total_tokens,runtime\n')
         with open(logs_filepath, 'a') as f:
             with open(logs_filepath, 'a') as f:
-                f.write(f'{timestamp},{openml_id},{missingness},{train_or_test},{log["model"]},{log["num_tokens"]},{runtime}\n')
+                f.write(f'{timestamp},{openml_id},{missingness},{train_or_test},{log["model"]},{log["n_tokens"]["total"]["n_input_tokens"]},{log["n_tokens"]["total"]["n_output_tokens"]},{log["n_tokens"]["total"]["n_total_tokens"]},{runtime}\n')
 
         if args.llm_role == 'expert':
-            epi_filepath = X_imputed_filepath.parent / f'{train_or_test}_epi.txt'
+            epi_filepath = X_imputed_filepath.parent / f'{train_or_test}_{timestamp}_epi.txt'
             epi_filepath.parent.mkdir(parents=True, exist_ok=True)
             with open(epi_filepath, 'w') as f:
-                f.write(log['epi_prompt'])
+                f.write(log['prompts']["expert_prompt"])
 
     # Evaluate imputation
     if args.evaluate and X_groundtruth is not None:
