@@ -9,6 +9,6 @@
     "system_prompt_suffix": "\r\n\r\n###\r\n\r\n",
     "user_prompt_prefix": "THE PROBLEM: We would like to analyze a data set, but unfortunately this data set has some missing values.\r\n\r\n###\r\n\r\n",
     "user_prompt_infix": "YOUR TASK: Please use your years of experience and the knowledge you have acquired in the course of your work to provide an estimate of what value the missing value (marked as <missing>) in the following row of the dataset would most likely have.\r\n\r\n",
-    "user_prompt_suffix": "\r\n\r\nIMPORTANT: Please do not provide any explanation or clarification. Only provide one value.\nOUTPUT FORMAT (JSON): {\"output\": value}"
+    "user_prompt_suffix": "\r\n\r\nIMPORTANT: Please do not provide any explanation or clarification. Only provide single value in a JSON format.\nRESPONSE FORMAT: {\"output\": value}"
   }
 }

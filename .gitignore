@@ -165,4 +165,3 @@ models
 *.csv
 *.json
 *.txt
-!prompts.json
