@@ -229,8 +229,8 @@ class LLMImputer():
             )
         else:
             client = openai.OpenAI(
-                base_url=os.getenv("CUSTOM_INFERENCE_SERVER_URL"), 
-                api_key="not-needed"
+                base_url=os.getenv("CUSTOM_INFERENCE_SERVER_URL"),
+                api_key=os.getenv("CUSTOM_API_KEY") if os.getenv("CUSTOM_API_KEY") is not None else "not-needed"
             )
 
         chat = client.chat.completions.create(
