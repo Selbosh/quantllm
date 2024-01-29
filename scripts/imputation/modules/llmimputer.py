@@ -8,14 +8,6 @@ import re
 import json
 
 import openai
-from langchain.chains import LLMChain
-from langchain.memory import ConversationBufferMemory
-from langchain.prompts.chat import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
-from langchain.schema import HumanMessage, SystemMessage
-from langchain_openai.chat_models import ChatOpenAI
-from langchain_mistralai.chat_models import ChatMistralAI
-from langchain_community.llms import llamacpp, huggingface_text_gen_inference
-from langchain_experimental.chat_models import Llama2Chat
 from pathlib import Path
 
 
@@ -185,7 +177,7 @@ class LLMImputer():
                 role = "Feature"
                 variable_type = "numerical"
                 description = ""
-                candidates = f"range from {X[column].min()} to { X[column].max()}"
+                candidates = ""
                 missing_values = "no"
 
             if column in X_missing_columns:
@@ -202,7 +194,7 @@ class LLMImputer():
 
         return dataset_variables_description
 
-    def __chat_api_call(self, model, system_prompt, user_prompt, temperature=0.2, max_tokens=256, frequency_penalty=0.0):
+    def __chat_api_call(self, model, messages, temperature=0.2, max_tokens=256, frequency_penalty=0.0):
         """
         Make an API call to OpenAI's GPT-4.
 
@@ -222,12 +214,6 @@ class LLMImputer():
         if self.debug:
             print(f"- Starting API call to {model}")
 
-        # Construct the messages for the API call
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-
         response = None
 
         # Save the number of tokens used for the API call
@@ -237,84 +223,29 @@ class LLMImputer():
             "n_total_tokens": 0
         }
 
-        model_response = model
-
         if model.startswith("gpt"):
-            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            chat = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                frequency_penalty=frequency_penalty,
-                max_tokens=max_tokens,  # The maximum number of tokens that can be generated in the chat completion.
-                n=1,
-                temperature=temperature
+            client = openai.OpenAI(
+                api_key=os.getenv("OPENAI_API_KEY")
             )
-            response = chat.choices[0].message.content
-            n_tokens["n_input_tokens"] = chat.usage.prompt_tokens
-            n_tokens["n_output_tokens"] = chat.usage.completion_tokens
-            n_tokens["n_total_tokens"] = chat.usage.total_tokens
-            model_response = chat.model
-        elif model.startswith("mistral"):
-            chat = ChatMistralAI(
-                api_key=os.getenv("MISTRALAI_API_KEY"),
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
+        else:
+            client = openai.OpenAI(
+                base_url=os.getenv("CUSTOM_INFERENCE_SERVER_URL"), 
+                api_key="not-needed"
             )
-            ai_message = chat(messages)
-            response = ai_message.content
-        elif model.startswith("llama"):
-            # Default model is the LlamaCpp model
-            if os.getenv("LLAMA2_INFERENCE_SERVER_URL") is None and os.getenv("LLAMA_MODEL_PATH") is None:
-                raise ValueError("Please set the environment variables LLAMA_MODEL_PATH or LLAMA2_INFERENCE_SERVER_URL.")
-            if os.getenv("LLAMA2_INFERENCE_SERVER_URL") is not None:
-                llm = huggingface_text_gen_inference.HuggingFaceTextGenInference(
-                    inference_server_url=os.getenv("LLAMA2_INFERENCE_SERVER_URL"),
-                    temperature=temperature,
-                    max_new_tokens=max_tokens,
-                )
-            else:
-                llm = llamacpp.LlamaCpp(
-                    model_path=os.getenv("LLAMA_MODEL_PATH"),
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    n_ctx=2048,
-                    n_gpu_layers=2,
-                    repeat_penalty=frequency_penalty,
-                    streaming=False,
-                    verbose=self.debug,
-                )
-            llama_model = Llama2Chat(llm=llm)
-            llama_messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessagePromptTemplate.from_template('{text}'),
-            ]
-            prompt_template = ChatPromptTemplate.from_messages(llama_messages)
-            chain = LLMChain(llm=llama_model, prompt=prompt_template)
-            response = chain.invoke({'text': user_prompt})['text']
-        elif model.startswith("lmstudio"):
-            base_url = os.getenv("LMSTUDIO_INFERENCE_SERVER_URL")
-            if base_url is None:
-                raise ValueError("Please set the environment variable LMSTUDIO_INFERENCE_SERVER_URL.")
-            client = openai.OpenAI(base_url=base_url, api_key="not-needed")
-            chat = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                frequency_penalty=frequency_penalty,
-                max_tokens=max_tokens,  # The maximum number of tokens that can be generated in the chat completion.
-                n=1,
-                temperature=temperature
-            )
-            response = chat.choices[0].message.content
-            n_tokens["n_input_tokens"] = chat.usage.prompt_tokens
-            n_tokens["n_output_tokens"] = chat.usage.completion_tokens
-            n_tokens["n_total_tokens"] = chat.usage.total_tokens
+
+        chat = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            frequency_penalty=frequency_penalty,
+            max_tokens=max_tokens,
+            n=1,
+            temperature=temperature
+        )
+
+        response = chat.choices[0].message.content
+        n_tokens["n_input_tokens"] = chat.usage.prompt_tokens
+        n_tokens["n_output_tokens"] = chat.usage.completion_tokens
+        n_tokens["n_total_tokens"] = chat.usage.total_tokens
 
         if self.debug:
             print(f"- Response: {response}")
@@ -333,7 +264,15 @@ class LLMImputer():
         user_prompt_prefix = self.prompts["expert_prompt_initialization"]["user_prompt_prefix"]
         user_prompt_suffix = self.prompts["expert_prompt_initialization"]["user_prompt_suffix"]
         user_prompt = user_prompt_prefix + dataset_description + user_prompt_suffix
-
+        if 'mistral' in self.model:
+            messages = [
+                {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"},
+            ]
+        else:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
         epi_max_tokens = 2048
 
         if self.model.startswith("gpt"):
@@ -342,7 +281,7 @@ class LLMImputer():
                 print(f"- Tiktoken: {n_input_tokens_tiktoken} tokens")
             self.n_input_tokens_tiktoken += n_input_tokens_tiktoken
 
-        epi_prompt, ept_n_tokens = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=epi_max_tokens)
+        epi_prompt, ept_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=epi_max_tokens)
         self.log["prompts"]["expert_prompt"] = epi_prompt
         self.log["n_tokens"]["epi"] = ept_n_tokens
         self.log["n_tokens"]["total"]["n_input_tokens"] = self.log["n_tokens"]["epi"]["n_input_tokens"] + self.log["n_tokens"]["di"]["n_input_tokens"]
@@ -384,20 +323,23 @@ class LLMImputer():
                     value = "<missing>"
                     variable_type = dataset_variables_description[column]["variable_type"]
                     candidates = dataset_variables_description[column]["candidates"]
-                    dataset_row += f'The {column} is {value} ({variable_type} variable, {candidates}). '
+                    dataset_row += f'The {column} is {value} ({variable_type} variable {", ".join(candidates) if variable_type == "categorical" else ""}). '
                 else:
                     value = X_row.loc[column]
                     dataset_row += f'The {column} is {value}. '
 
             user_prompt = user_prompt_prefix + user_prompt_infix + dataset_row + user_prompt_suffix
-            di_max_tokens = 148  # 256
+            if 'mistral' in self.model:
+                messages = [
+                    {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"},
+                ]
+            else:
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ]
 
-            if self.model.startswith("gpt"):
-                num_tokens = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
-                self.n_input_tokens_tiktoken += num_tokens
-                if self.debug:
-                    print(f"- Number of tokens for DI: {num_tokens}")
-            di, di_n_tokens = self.__chat_api_call(self.model, system_prompt, user_prompt, max_tokens=di_max_tokens)
+            di_response, di_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=148, temperature=0.0)
             self.log["n_tokens"]["di"]["n_input_tokens"] += di_n_tokens["n_input_tokens"]
             self.log["n_tokens"]["di"]["n_output_tokens"] += di_n_tokens["n_output_tokens"]
             self.log["n_tokens"]["di"]["n_total_tokens"] += di_n_tokens["n_total_tokens"]
@@ -406,41 +348,31 @@ class LLMImputer():
             self.log["n_tokens"]["total"]["n_total_tokens"] = self.log["n_tokens"]["epi"]["n_total_tokens"] + self.log["n_tokens"]["di"]["n_total_tokens"]
             self.log["n_requests"]["di"] += 1
 
-            # find the imputed value from the response
-            # the imputed value is in ("{imputed value}") format
-            # Use regex to find the imputed value
-            # re_result = re.search(r'"(.*)"', di)
-            # re_result = re.search(r'"(.*)"', di)
-            # re1_result = re.search(r':\s(.*)', di)
-            regex_1 = r'"output":\s?["\']?(.*)["\']?\s?}?'
-            regex_2 = r':\s?["\']?(.*)["\']?\s?}?'
-            regex_3 = r'"([^"]*)"'
+            di = __parser(di_response, dataset_variables_description, target_column)
 
-            re1_result = re.findall(regex_1, di)
-            re2_result = re.findall(regex_2, di)
-            re3_result = re.findall(regex_3, di)
-
-            if len(re1_result) > 0:
-                di = re1_result[0]
-            elif len(re2_result) > 0:
-                di = re2_result[0]
-            elif len(re3_result) > 0:
-                di = re3_result[0]
-            else:
-                di = di
-            di = di.strip(":").strip('"').strip("'").strip("{").strip("}").strip().strip('"').replace("output", "").replace("'", "")
             if di is None:
-                raise ValueError("The Data Imputation (di) module returned None.")
-
-            # convert to float if the value is numerical
-            if dataset_variables_description[target_column]["variable_type"] == "numerical":
-                # Check if compatible with float
-                try:
-                    di = float(di)
-                except Exception as e:
-                    if self.debug:
-                        print(f"- Error: {e}")
-                    di = 0.0
+                if 'mistral' in self.model:
+                    messages = [
+                        {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"},
+                        {"role": "assistant", "content": di_response},
+                        {"role": "user", "content": "Parse the result and only provide single value in a JSON format.\nRESPONSE FORMAT: {\"output\": value}"}
+                    ]
+                else:
+                    messages = [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                        {"role": "assistant", "content": di_response},
+                        {"role": "user", "content": f"{user_prompt_suffix}"}
+                    ]
+                di_response, di_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=148, temperature=0.0)
+                self.log["n_tokens"]["di"]["n_input_tokens"] += di_n_tokens["n_input_tokens"]
+                self.log["n_tokens"]["di"]["n_output_tokens"] += di_n_tokens["n_output_tokens"]
+                self.log["n_tokens"]["di"]["n_total_tokens"] += di_n_tokens["n_total_tokens"]
+                self.log["n_tokens"]["total"]["n_input_tokens"] = self.log["n_tokens"]["epi"]["n_input_tokens"] + self.log["n_tokens"]["di"]["n_input_tokens"]
+                self.log["n_tokens"]["total"]["n_output_tokens"] = self.log["n_tokens"]["epi"]["n_output_tokens"] + self.log["n_tokens"]["di"]["n_output_tokens"]
+                self.log["n_tokens"]["total"]["n_total_tokens"] = self.log["n_tokens"]["epi"]["n_total_tokens"] + self.log["n_tokens"]["di"]["n_total_tokens"]
+                self.log["n_requests"]["di"] += 1
+                di = __parser(di_response, dataset_variables_description, target_column)
 
             if self.debug:
                 print(f"- Imputed value: {di}")
@@ -448,6 +380,30 @@ class LLMImputer():
             self.__save_log()
 
             return (target_column, di)
+
+        def __parser(di_response, dataset_variables_description, target_column):
+            regex_1 = r'"output":\s?["\']?(.*)["\']?\s?}?'
+            regex_2 = r':\s?["\']?(.*)["\']?\s?}?'
+            re1_result = re.findall(regex_1, di_response)
+            re2_result = re.findall(regex_2, di_response)
+            if len(re1_result) > 0:
+                di = re1_result[0]
+            elif len(re2_result) > 0:
+                di = re2_result[0]
+            else:
+                di = None
+            if di is None:
+                return None
+            di = di.replace(":", "").replace('"', "").replace("'", "").replace("{", "").replace("}", "").replace("output", "").strip()
+            di = re.sub(r'\s#.*', '', di)
+            if dataset_variables_description[target_column]["variable_type"] == "numerical":
+                try:
+                    di = float(di)
+                except Exception as e:
+                    if self.debug:
+                        print(f"- Error: {e}")
+                    return None
+            return di
 
         target_columns = list(X_row[X_row.isna()].index)
         responses = [__impute(target_column) for target_column in target_columns]
