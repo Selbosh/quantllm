@@ -160,8 +160,9 @@ cython_debug/
 .idea/
 
 poetry.lock
-models/
-models
 *.csv
 *.json
 *.txt
+
+# Exeptions
+!prompts.json
