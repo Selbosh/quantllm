@@ -163,6 +163,7 @@ poetry.lock
 *.csv
 *.json
 *.txt
+data/
 
 # Exeptions
 !prompts.json
