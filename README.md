@@ -84,7 +84,7 @@ Instructions for each model are the following:
 
 #### Prompt engineering
 
-To edit prompts, edit `/data/working/prompts.json`.
+To edit prompts, edit `/scripts/imputation/prompts.json`.
 
 ```json
 {
