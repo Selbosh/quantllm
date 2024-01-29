@@ -39,7 +39,7 @@ for _, row in datasets.iterrows():
             with open(folder / f'{did}/y_categories.json', 'w') as f:
                 json.dump(y_categories, f, ensure_ascii=False, indent=2)
         with open(folder / f'{did}/details.json', mode="wt", encoding="utf-8") as f:
-	        json.dump(details, f, ensure_ascii=False, indent=2)
+            json.dump(details, f, ensure_ascii=False, indent=2)
 
     dataset = openml.datasets.get_dataset(did, download_data=True, download_qualities=True, download_features_meta_data=True)
 
@@ -48,5 +48,3 @@ for _, row in datasets.iterrows():
         print(f"{v.name} ({v.data_type}), {v.nominal_values} {missing}")
     for k, q in dataset.qualities.items():
         if not pd.isna(q): print(k, q)
-
-# Use PercentageOfInstancesWithMissingValues to screen for data with missing values

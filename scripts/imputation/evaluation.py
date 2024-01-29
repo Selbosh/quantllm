@@ -118,7 +118,7 @@ def evaluation(args: argparse.Namespace, timestamp: str, dataset_type: str, open
 def imputation_evaluation(args: argparse.Namespace, timestamp: str, openml_id: int, missingness: str | None, X_groundtruth: pd.DataFrame, X_corrupted: pd.DataFrame, X_imputed: pd.DataFrame, X_categories: dict, results_filepath: Path | None):
     '''
     This function runs the imputation experiment for a specific dataset.
-    
+
     Args:
         - args:    argparse.Namespace object
         - openml_id:    OpenML dataset id, integer

@@ -11,9 +11,9 @@ class MissingValues:
         '''
         This class is based on the MissingValues class from Jenga.
         https://github.com/schelterlabs/jenga
-        
+
         Corruptions for structured data
-        
+
         Input:
             - column:    column to perturb, string
             - n_corrupted_rows:   numbers of rows to corrupt, integer between 0 and len(data)
@@ -53,7 +53,7 @@ class MissingValues:
             ValueError(f"sampling type '{self.sampling}' not recognized")
 
         return rows
-    
+
     def sample_columns(self, data):
         return np.random.choice(data.columns, self.n_corrupted_columns, replace=False)
 

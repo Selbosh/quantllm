@@ -5,7 +5,7 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier
 
 
 class MeanModeImputer():
@@ -84,16 +84,12 @@ class RandomForestImputer():
     def fit_transform(self, X: pd.DataFrame):
         # Original paper: "MissForest—non-parametric missing value imputation for mixed-type data"
         # https://academic.oup.com/bioinformatics/article/28/1/112/219101
-        
         X_categorical_columns = self.X_categories.keys()
-
         clf = RandomForestClassifier(n_estimators=10, n_jobs=self.n_jobs)
         rgr = RandomForestRegressor(n_estimators=10, n_jobs=self.n_jobs)
         mf = MissForest(clf, rgr)
-        
         if len(X_categorical_columns) > 0:
             X_imputed = mf.fit_transform(X, X_categorical_columns)
         else:
             X_imputed = mf.fit_transform(X)
-
         return X_imputed
