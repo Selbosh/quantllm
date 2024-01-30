@@ -31,34 +31,7 @@ def main():
                timestamp=timestamp,
                cities_dirpath=cities_dirpath,
             #    input_dirpath=input_dirpath,
-               output_dirpath=output_dirpath)
-
-def conjugacy_example():
-    np.random.seed(42)
-    train_normal = np.random.normal(170, 5, size=100)
-    test_normal = np.random.normal(170, 5, size=200)
-    prior_normal = {'mean': 170, 'precision': 1/10, 'alpha': 1, 'beta': 1}
-    eval_normal = evaluate_conjugate_prior('norm', train_normal, test_normal, **prior_normal)
-    eval_df = pd.DataFrame(eval_normal)
-    plt.plot(eval_df['n'], eval_df['loss'])
-    plt.xscale('log')
-    plt.title('Normal inverse gamma prior')
-    plt.xlabel('Sample size')
-    plt.ylabel('Expected loss')
-    plt.show()
-    
-    train_exp = np.random.exponential(5, size=100)
-    test_exp = np.random.exponential(5, size=100)
-    prior_exp = {'shape': 1, 'scale': 1}
-    eval_exp = evaluate_conjugate_prior('exp', train_exp, test_exp, **prior_exp)
-    eval_df = pd.DataFrame(eval_exp)
-    plt.plot(eval_df['n'], eval_df['loss'])
-    plt.xscale('log')
-    plt.title('Gamma prior')
-    plt.xlabel('Sample size')
-    plt.ylabel('Expected loss')
-    plt.show()   
+               output_dirpath=output_dirpath) 
     
 if __name__ == "__main__":
-    conjugacy_example()
-    #main()
+    main()
