@@ -1,5 +1,5 @@
 import numpy as np
-from scipy import stats #import t, lomax, norm, gamma, expon, entropy
+from scipy import stats
 import matplotlib.pyplot as plt
 
 class NormalInverseGammaPrior:
@@ -52,9 +52,12 @@ class GammaExponentialPrior:
         self.scale_post = post_scale
         
     def log_posterior_predictive_density(self, new_data):
-        return stats.lomax.logpdf(new_data,
-                                  c=self.shape_post,
-                                   scale=1.0 / self.scale_post)
+        shape = self.shape_post
+        scale = self.scale_post
+        return np.log(shape / scale * (1 + new_data / scale) ** -(shape + 1))
+        #return stats.lomax.logpdf(new_data,
+        #                          c=self.scale_post,
+        #                          scale=self.shape_post)
     
     def expected_log_posterior_predictive_loss(self, new_data):
         log_pred_density = self.log_posterior_predictive_density(new_data)
