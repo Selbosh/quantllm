@@ -62,41 +62,29 @@ optional arguments:
 
 #### Setups for using LLMs
 
-You can use OpenAI API, Llama 2 or Mistral AI API via LangChain.
-You can also use other LLMs that behave like OpenAI API, e.g. LM Studio.
+You can use OpenAI API, or other APIs compatible with OpenAI API, e.g. [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) and [vLLM](https://github.com/vllm-project/vllm).
+
 
 Instructions for each model are the following:
 
-- OpenAI API (via LangChain)
-  Please set your API key in `/.env`.
+- OpenAI API
+  Please set your API key in `/.env` as
   ```
   OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
   ```
-- Mistral AI API (via LangChain)
-  Please set your API key in `/.env`.
+- Other OpenAI API compatible APIs
+  Please set a base URL to the inference server in `/.env` as
   ```
-  MISTRALAI_API_KEY="YOUR_MISTRALAI_API_KEY"
+  CUSTOM_INFERENCE_SERVER_URL="YOUR_CUSTOM_INFERENCE_SERVER_URL"
   ```
-- Llama 2 (via LangChain)
-  First, please follow [the official instructions](https://python.langchain.com/docs/integrations/chat/llama2_chat).
-  If you want to use HuggingFaceTextGenInference, please add a URL of your inference server to `/.env`.
+  If an API key is required, please set it in `/.env` as
   ```
-  LLAMA2_INFERENCE_SERVER_URL="YOUR_LLAMA2_INFERENCE_SERVER_URL"
-  ```
-  If you want to use LlamaCPP, please add a path to `gguf` file to `/.env`.
-  ```
-  LLAMA_MODEL_PATH="YOUR_LLAMA_MODEL_PATH"
-  ```
-- LM Studio (or other custom APIs)
-  If you want to use LM Studio, please start the local inference server.
-  Please set a base URL to `/.env`.
-  ```
-  LMSTUDIO_INFERENCE_SERVER_URL="http://localhost:1234/v1"
+  CUSTOM_API_KEY="YOUR_CUSTOM_API_KEY"
   ```
 
 #### Prompt engineering
 
-To edit prompts, edit `/data/working/prompts.json`.
+To edit prompts, edit `/scripts/imputation/prompts.json`.
 
 ```json
 {
@@ -144,24 +132,17 @@ poetry run python scripts/imputation/experiment.py --method meanmode
 
 #### LLM Imputer
 
-For LLMs, you can test several models. Mistral AI (via LangChain), Llama 2 (via LangChain) and LM Studio APIs are also available in addition to OpenAI.
+For LLMs, you can test several models. OpenAI GPT models are available, and also other models OpenAI API compatible models are available.
 
-To select a model, set the `--llm_model` option. The default model is `gpt-4`. For LM Studio, please add the name of the model as well (e.g. `--llm_model lmstudio-llama-2-7b`).
-
-| Model | Argument (`*`: wildcard regex) |
-| ---- | ---- |
-| GPT (e.g. gpt-4, gpt-3.5-turbo) | `--llm_model gpt*` |
-| Mistral AI | `--llm_model mistral*` |
-| Llama 2 | `--llm_model llama*` |
-| LM Studio | `--llm_model lmstudio-*` |
+To select a model, set the `--llm_model` option. The default model is `gpt-4`. For OpenAI GPT models, please use official model names, e.g. `gpt-3.5-turbo`. For OpenAI API compatible models, you can freely set a model name, but please note that `--llm_model` option is required.
 
 ```bash
-poetry run python scripts/imputation/experiment.py --method llm --llm_model mistral
+poetry run python scripts/imputation/experiment.py --method llm --llm_model gpt-3.5-turbo
 ```
 
 You can also ask whether you want LLMs to behave like an expert or not. The default role is `expert`.
 ```bash
-poetry run python scripts/imputation/experiment.py --method llm --llm_role nonexpert
+poetry run python scripts/imputation/experiment.py --method llm --llm_model gpt-4 --llm_role nonexpert
 ```
 
 #### Specifying datasets
@@ -204,13 +185,3 @@ optional arguments:
 ### Modify LLM Imputer
 
 If you want to modify imputation method using LLMs, please edit `/scripts/imputation/modules/llmimputer.py`.
-
-Also, to set hyperparameters for llamaCpp, please edit the following codes in the file.
-```python
-llm = llamacpp.LlamaCpp(
-    model_path=os.getenv("LLAMA_MODEL_PATH"),
-    temperature=temperature,
-    max_tokens=max_tokens,
-    streaming=False,
-)
-```

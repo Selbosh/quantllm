@@ -89,7 +89,7 @@ def experiment(args: argparse.Namespace, timestamp: str, dataset_type: str, open
         except Exception as e:
             print(f'Error in OpenML Id: {openml_id}, Train/Test: train, Method: {args.method}')
             print(e)
-        
+
         try:
             imputation_experiment(
                 args=args, timestamp=timestamp, openml_id=openml_id, train_or_test='test', missingness=missingness,
@@ -100,7 +100,7 @@ def experiment(args: argparse.Namespace, timestamp: str, dataset_type: str, open
         except Exception as e:
             print(f'Error in OpenML Id: {openml_id}, Train/Test: test, Method: {args.method}')
             print(e)
-        
+
         if args.downstream:
             downstream_experiment(
                 args=args, timestamp=timestamp, openml_id=openml_id, missingness=missingness,
@@ -155,7 +155,7 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         openml_dirpath = data_dirpath / 'openml'
         description_file = openml_dirpath / f'{openml_id}/description.txt'
         description = description_file.read_text()
-        prompts_filepath = data_dirpath / 'working' / 'prompts.json'
+        prompts_filepath = Path(__file__) / 'prompts.json'
         prompts = json.loads(prompts_filepath.read_text())
         log_filepath = X_imputed_filepath.parent / f'log_{train_or_test}_{timestamp}.json'
         imputer = LLMImputer(X_categories=X_categories, prompts=prompts, dataset_description=description, model=args.llm_model, role=args.llm_role, log_filepath=log_filepath, debug=args.debug)
@@ -240,7 +240,7 @@ def downstream_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
 
     # Test
     score = clf.score(X_test, y_test.values.ravel())
-    
+
     with open(results_filepath, 'a') as f:
         f.write(f'{timestamp},{args.method},{openml_id},{list(missing_columns.keys())[0]},{list(missing_columns.values())[0]},{missingness},{score}\n')
 

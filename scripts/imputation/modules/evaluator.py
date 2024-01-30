@@ -1,4 +1,5 @@
-from sklearn.metrics import mean_squared_error, f1_score, mean_absolute_error
+from sklearn.metrics import f1_score
+from sklearn.preprocessing import OrdinalEncoder
 import numpy as np
 import pandas as pd
 
@@ -11,38 +12,33 @@ class ImputationEvaluator:
         self.X_categories = X_categories.copy()
         return
 
-    def evaluate(self):
-        rmse_results = self.__rmse__()
-        macro_f1_results = self.__macro_f1__()
-
-        return rmse_results, macro_f1_results
-
-    def __rmse__(self):
-        X_numerical_columns = list(set(self.X_complete.columns) - set(self.X_categories.keys()))
-        X_missing_index = self.X_incomplete[X_numerical_columns].isna().any(axis=1)
-        X_complete_numerical = self.X_complete[X_numerical_columns].loc[X_missing_index]
-        X_imputed_numerical = self.X_imputed[X_numerical_columns].loc[X_missing_index]
-
-        rmse_results = {}
-        for column in X_numerical_columns:
-            if self.X_incomplete[column].isna().any():
-                mse = np.mean((X_complete_numerical[column].to_numpy() - X_imputed_numerical[column].to_numpy()) ** 2)
-                var = np.var(X_complete_numerical[column].to_numpy())
-                rmse_results[column] = np.sqrt(mse/var) if var != 0.0 else 0.0
-
-        return rmse_results
-
-    def __macro_f1__(self):
+    def evaluate(self, column: str):
         X_categorical_columns = self.X_categories.keys()
-        X_missing_index = self.X_incomplete[X_categorical_columns].isna().any(axis=1)
-        X_complete_categorical = self.X_complete[X_categorical_columns].loc[X_missing_index]
-        X_imputed_categorical = self.X_imputed[X_categorical_columns].loc[X_missing_index]
+        rmse_result = None
+        macro_f1_result = None
+        if column in X_categorical_columns:
+            macro_f1_result = self.__macro_f1__(column)
+        else:
+            rmse_result = self.__rmse__(column)
+        return rmse_result, macro_f1_result
 
-        macro_f1_results = {}
-        for column in X_categorical_columns:
-            categories = self.X_categories[column]
-            if self.X_incomplete[column].isna().any():
-                macro_f1 = f1_score(X_complete_categorical[column], X_imputed_categorical[column], labels=categories, average='macro')
-                macro_f1_results[column] = macro_f1
+    def __rmse__(self, column: str):
+        X_missing_index = self.X_incomplete[self.X_incomplete[column].isnull()].index
+        X_complete_numerical = self.X_complete[column].loc[X_missing_index].to_numpy().reshape(-1, 1)
+        X_imputed_numerical = self.X_imputed[column].loc[X_missing_index].to_numpy().reshape(-1, 1)
+        diff = X_complete_numerical - X_imputed_numerical
+        diff = diff[~np.isnan(diff)]
+        rmse = np.sqrt(np.sum(diff ** 2) / len(diff))
+        max_min_range = np.abs(np.max(X_complete_numerical) - np.min(X_complete_numerical))
+        return rmse / max_min_range if max_min_range != 0 else None
 
-        return macro_f1_results
+    def __macro_f1__(self, column: str):
+        X_missing_index = self.X_incomplete[self.X_incomplete[column].isnull()].index
+        X_complete_categorical = self.X_complete[column].loc[X_missing_index].str.lower()
+        X_imputed_categorical = self.X_imputed[column].loc[X_missing_index].str.lower()
+        categories = list(map(lambda x: x.lower(), self.X_categories[column]))
+        encoder = OrdinalEncoder(categories=[categories], handle_unknown='use_encoded_value', unknown_value=-1)
+        X_complete_categorical = encoder.fit_transform(X_complete_categorical.to_numpy().reshape(-1, 1))
+        X_imputed_categorical = encoder.transform(X_imputed_categorical.to_numpy().reshape(-1, 1))
+        macro_f1 = f1_score(X_complete_categorical, X_imputed_categorical, average='macro')
+        return macro_f1
