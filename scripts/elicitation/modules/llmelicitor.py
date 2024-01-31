@@ -146,7 +146,6 @@ class LLMElicitor:
             json_text = re_match.group()
             try:
                 data = json.loads(json_text)
-                print(data)
             except json.JSONDecodeError as e:
                 print(f"Error parsing LLM JSON output: {e}\n\n{json_text}")
         else:
