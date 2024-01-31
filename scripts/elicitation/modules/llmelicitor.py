@@ -4,19 +4,23 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 import pandas as pd
+import re
 
 class LLMElicitor:
     def __init__(self,
                  prompts: dict = {},
-                 method: str = 'shelf',
-                 format: str = 'dist',
-                 context: str = '',
+                 model: str = 'gpt-4',
+                 role: str = 'expert',
+                 method: str = 'direct',
+                 expert_prompt: str | None = None,
+                 #target_quantity: str = '',
+                 #target_distribution: str | None = None,
                  log_filepath: Path = None,
                  debug: bool = False):
         self.prompts = prompts
         self.method = method
-        self.format = format
-        self.context = context
+        self.expert_prompt = expert_prompt
+        #self.target_quantity
         self.log_filepath = log_filepath
         self.debug = debug
         
@@ -34,10 +38,117 @@ class LLMElicitor:
                     "n_output_tokens": 0,
                     "n_total_tokens": 0,
                     "n_input_tokens_tiktoken": 0
-                } for key in ['epi', 'elicit', 'total']
+                } for key in ['epi', 'pi', 'total']
             }
         }
         self.__save_log()
+        
+    def elicit(self, target_quantity: str, target_distribution: str | None = None):
+        return self.__prior_elicitation(target_quantity, target_distribution)
+    
+    def __prior_elicitation(self, target_quantity: str, target_distribution: str | None = None):
+        """
+        Prior elicitation module
+        
+        Args:
+            - `target_quantity`: Text description of phenomenon to be estimated.
+            - `target_distribution`: (Optional) parametrized distribution to return.
+        """
+        # Who is the expert?
+        if self.role == 'expert':
+            system_prompt = self.expert_prompt
+        elif self.role == 'conference':
+            system_prompt = self.prompts['elicitation_framework']['conference']
+        else:
+            system_prompt = self.prompts['non_expert_prompt']
+
+        # What elicitation method will be used?
+        # (Decision conferencing is treated as an expert role, rather than a method)
+        if self.method in ['shelf', 'direct', 'roulette']:
+            system_prompt += self.prompts['elicitation_framework'][self.method]
+        else:
+            system_prompt += self.prompts['elicitation_framework']['direct']
+        system_prompt += self.prompts['prior_elicitation']['system_prompt_suffix']
+        user_prompt_prefix = self.prompts['prior_elicitation']['user_prompt_prefix']
+        user_prompt_infix = self.prompts['prior_elicitation']['user_prompt_infix']
+        if target_distribution is None:
+            # Unconstrained selection of parametric distribution (could be tricky to evaluate)
+            target_distribution = 'any'
+        user_prompt_suffix = (self.prompts['prior_elicitation']['user_prompt_suffix']['suffix'] +
+          self.prompts['prior_elicitation']['user_prompt_suffix']['suffix'][target_distribution])
+        user_prompt = user_prompt_prefix + user_prompt_infix + target_quantity + user_prompt_suffix
+        
+        if 'mistral' in self.model:
+            messages = [
+                {'role': 'user', 'content': f"{system_prompt}\n\n{user_prompt}"}
+            ]
+        else:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+        
+        # Call the LLM.
+        pi_response, pi_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=148, temperature=0.0)
+        self.__update_n_tokens(pi_n_tokens) # could maybe move this to inside __chat_api_call
+        
+        # Parse the result.
+        parsed_response = self.__parser(pi_response)
+        if parsed_response is None:
+            # If the __parser fails, ask the LLM to parse it for us by repeating the user_prompt_suffix. Then run it through the parser again.
+            # This is done by passing the LLM's response to role `assistant`, i.e. chat history. Then asking just for formatting as a follow-up.
+            # But we should try with regex first since it will be faster than sending another API call.
+            if 'mistral' in self.model:
+                messages = [
+                    {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"},
+                    {"role: assistant", "content:" pi_response},
+                    {"role": "user", "content": self.prompts['prior_elicitation']['user_prompt_suffix']['retry']}
+                ]
+            else:
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                    {"role": "assistant", "content": pi_response},
+                    {"role": "user", "content": user_prompt_suffix}
+                ]
+            pi_response, pi_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=148, temperature=0.0)
+            self.__update_n_tokens(pi_n_tokens)
+            parsed_response = self.__parser(pi_response) # NB could still fail a second time
+        
+        if self.debug:
+            print(f"- Imputed value: {parsed_response}")
+            
+        self.__save_log()
+        return (target_distribution, parsed_response)
+    
+    def __update_n_tokens(self, n_tokens):
+        for tt in ['input', 'output', 'total']:
+            token_type = f'n_{tt}_tokens'
+            self.log['n_tokens']['pi'][token_type] += n_tokens[token_type]
+            self.log['n_tokens']['total'][token_type] = self.log['n_tokens']['epi'][token_type] + self.log['n_tokens']['pi'][token_type]
+        self.log['n_requests']['pi'] += 1
+        
+    def __parser(pi_response: str) -> dict | None:
+        """
+        Attempts to parse a JSON object from LLM text output.
+        If no (valid) object is found, returns None.
+        """
+        regex_json = r'\{.*\}'
+        re_match = re.search(regex_json, pi_response)
+        data = None
+        if re_match:
+            json_text = re_match.group()
+            try:
+                data = json.loads(json_text)
+                print(data)
+            except json.JSONDecodeError as e:
+                print(f"Error parsing LLM JSON output: {e}\n\n{json_text}")
+        else:
+            print("No valid JSON object found in LLM output.")
+        return data
+    
+    def fetch_log(self):
+        return self.log
     
     def __save_log(self):
         """
@@ -50,70 +161,6 @@ class LLMElicitor:
             return
         with open(self.log_filepath, "w") as f:
             json.dump(self.log, f, indent=2)
-            
-    def elicit_prior(self, X: pd.DataFrame):
-        """
-        Elicit a prior distribution from the LLM.
-        """
-        epi_prompt = ""
-        if self.role == "expert":
-            epi_prompt = self.__expert_prompt_initialization(self.dataset_description)
-        
-    def fetch_log(self):
-        return self.log
-    
-    def __expert_prompt_initialization(self, dataset_description: str):
-        """
-        Expert Prompt Initialization (EPI) module
-        """
-        if self.debug:
-            print("Starting Expert Prompt Initialization (EPI) module...")
-        # First API Call to generate the Expert Prompt Initialization (epi)
-        system_prompt = self.prompts['expert_prompt_initialization']['system_prompt']
-        user_prompt_prefix = self.prompts['expert_prompt_initialization']['user_prompt_prefix']
-        user_prompt_suffix = self.prompts['expert_prompt_initialization']['user_prompt_suffix']
-        user_prompt = user_prompt_prefix + dataset_description + user_prompt_suffix
-        if 'mistral' in self.model:
-            messages = [
-                {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"},
-            ]
-        else:
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ]
-        epi_max_tokens = 2048
-        
-        if self.model.startswith("gpt"):
-            n_input_tokens_tiktoken = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
-            if self.debug:
-                print(f"- Tiktoken: {n_input_tokens_tiktoken} tokens")
-            self.n_input_tokens_tiktoken += n_input_tokens_tiktoken
-
-        epi_prompt, ept_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=epi_max_tokens)
-        self.log["prompts"]["expert_prompt"] = epi_prompt
-        self.log["n_tokens"]["epi"] = ept_n_tokens
-        self.log["n_tokens"]["total"]["n_input_tokens"] = self.log["n_tokens"]["epi"]["n_input_tokens"] + self.log["n_tokens"]["di"]["n_input_tokens"]
-        self.log["n_tokens"]["total"]["n_output_tokens"] = self.log["n_tokens"]["epi"]["n_output_tokens"] + self.log["n_tokens"]["di"]["n_output_tokens"]
-        self.log["n_tokens"]["total"]["n_total_tokens"] = self.log["n_tokens"]["epi"]["n_total_tokens"] + self.log["n_tokens"]["di"]["n_total_tokens"]
-        self.log["n_requests"]["epi"] += 1
-        
-        if self.debug:
-            print("Finished Expert Prompt Initialization (EPI) module.")
-            print(f"- EPI Prompt: {epi_prompt}")
-            
-        if epi_prompt is None:
-            raise ValueError("The Expert Prompt Initialization (epi) module returned None.")
-
-        self.__save_log()
-
-        return epi_prompt
-    
-    def __parser(llm_response, family, target_param):
-        """
-        For extracting numeric values from natural language responses.
-        """
-        pass
             
     def __chat_api_call(self, model, messages, temperature=0.2, max_tokens=256, frequency_penalty=0.0):
         load_dotenv()
@@ -155,3 +202,4 @@ class LLMElicitor:
             print(f"- Number of tokens: {n_tokens}")
 
         return (response, n_tokens)
+

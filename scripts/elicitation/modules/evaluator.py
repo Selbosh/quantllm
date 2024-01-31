@@ -1,4 +1,4 @@
-from conjugate import NormalInverseGammaPrior, GammaExponentialPrior
+from .conjugate import NormalInverseGammaPrior, GammaExponentialPrior
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
