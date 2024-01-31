@@ -23,5 +23,9 @@
         "any": "{ \"distribution\": name, \"param1\": value1, \"param2\": value2 }"
       }
     }
+  },
+  "weather": {
+    "temperature": "Average daily temperature (C) in {city} in December.",
+    "precipitation": "Total monthly precipitation (mm) in {city} in December."
   }
 }
