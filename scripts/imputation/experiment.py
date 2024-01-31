@@ -255,7 +255,7 @@ def main():
 
     output_dirpath = data_dirpath / f'output/imputation/{args.method}'
     if args.method == 'llm':
-        output_dirpath = data_dirpath / f'output/imputation/{args.method}/{args.llm_model}'
+        output_dirpath = data_dirpath / f'output/imputation/{args.method}/{args.llm_model}/{args.llm_role}'
     output_dirpath.mkdir(parents=True, exist_ok=True)
 
     if 'complete' in args.dataset:

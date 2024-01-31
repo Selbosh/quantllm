@@ -308,7 +308,7 @@ class LLMImputer():
         if self.role == "expert":
             system_prompt = expert_prompt + self.prompts["data_imputation"]["system_prompt_suffix"]
         else:
-            system_prompt = self.prompts["non_expert_prompt"] + self.prompts["data_imputation"]["system_prompt"]
+            system_prompt = self.prompts["non_expert_prompt"] + self.prompts["data_imputation"]["system_prompt_suffix"]
         user_prompt_prefix = self.prompts["data_imputation"]["user_prompt_prefix"]
         user_prompt_infix = self.prompts["data_imputation"]["user_prompt_infix"]
         user_prompt_suffix = self.prompts["data_imputation"]["user_prompt_suffix"]
