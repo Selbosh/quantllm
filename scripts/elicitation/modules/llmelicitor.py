@@ -13,14 +13,13 @@ class LLMElicitor:
                  role: str = 'expert',
                  method: str = 'direct',
                  expert_prompt: str | None = None,
-                 #target_quantity: str = '',
-                 #target_distribution: str | None = None,
                  log_filepath: Path = None,
                  debug: bool = False):
         self.prompts = prompts
-        self.method = method
         self.expert_prompt = expert_prompt
-        #self.target_quantity
+        self.model = model
+        self.role = role
+        self.method = method
         self.log_filepath = log_filepath
         self.debug = debug
         

@@ -1,9 +1,9 @@
 {
   "elicitation_framework": {
-    "direct": "You will determine the prior distribution parameters for a univariate quantity. Give the distribution directly.",
-    "shelf": "Use the SHELF elicitation framework to derive the prior distribution parameters for a univariate quantity. Do not ask for further input.",
-    "conference": "You are at a decision conference, tasked with deriving prior distribution parameters for a univarite quantity. Simulate the conference, choosing suitable experts, and without asking for further user input. Do not give any transcript or summary of the discussion. Only return the final consensus distribution parameters.",
-    "roulette": "You will use the Roulette Method to derive the prior distribution for a univariate quantity. Place virtual chips in equally-spaced bins."
+    "direct": "You will determine the prior distribution parameters for a univariate quantity. Give the distribution directly. ",
+    "shelf": "Use the SHELF elicitation framework to derive the prior distribution parameters for a univariate quantity. Do not ask for further input. ",
+    "conference": "You are at a decision conference, tasked with deriving prior distribution parameters for a univarite quantity. Simulate the conference, choosing suitable experts, and without asking for further user input. Do not give any transcript or summary of the discussion. Only return the final consensus distribution parameters. ",
+    "roulette": "You will use the Roulette Method to derive the prior distribution for a univariate quantity. Place virtual chips in 10 equally-spaced bins. "
   },
   "non_expert_prompt": "You are an individual with no academic or professional background related to the quantity being modelled. Your interests and expertise lie completely outside the domain, such as a chef specializing in Italian cuisine when the question is about astrophysics. You lack familiarity with the technical jargon, concepts, and methodologies pertinent to the analysis. Your approach to questions about specific variables, attributes, or properties is based on general knowledge or common sense, without any specialized understanding of the dataset's context or significance. You are more inclined to provide answers based on personal opinions or unrelated experiences rather than data-driven insights.",
   "prior_elicitation": {
