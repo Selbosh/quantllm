@@ -155,7 +155,7 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
         openml_dirpath = data_dirpath / 'openml'
         description_file = openml_dirpath / f'{openml_id}/description.txt'
         description = description_file.read_text()
-        prompts_filepath = Path(__file__) / 'prompts.json'
+        prompts_filepath = Path(__file__).parent / 'prompts.json'
         prompts = json.loads(prompts_filepath.read_text())
         log_filepath = X_imputed_filepath.parent / f'log_{train_or_test}_{timestamp}.json'
         imputer = LLMImputer(X_categories=X_categories, prompts=prompts, dataset_description=description, model=args.llm_model, role=args.llm_role, log_filepath=log_filepath, debug=args.debug)
@@ -255,7 +255,7 @@ def main():
 
     output_dirpath = data_dirpath / f'output/imputation/{args.method}'
     if args.method == 'llm':
-        output_dirpath = data_dirpath / f'output/imputation/{args.method}/{args.llm_model}/{args.llm_role}'
+        output_dirpath = data_dirpath / f'output/imputation/{args.method}/{args.llm_role}/{args.llm_model}'
     output_dirpath.mkdir(parents=True, exist_ok=True)
 
     if 'complete' in args.dataset:
