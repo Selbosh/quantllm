@@ -86,11 +86,11 @@ def elicit_psychology(args: argparse.Namespace,
         target_qty = "Imagine what small-to-medium effect sizes in {subfield} look like. "
         "Which effect size would you expect as the most probable one to be found? "
         "Which range of values would you consider possible? "
-        "Specifically, we are interested in the "
+        "Specifically, we are interested in: "
         for target in ['cohen', 'pearson']:
-            target_prompt = prompts['psychology'][target]
+            target_prompt = target_qty + prompts['psychology'][target]
             target_distribution = "student_t" if target == 'cohen' else 'beta'
-            dist, params = elicitor.elicit(target_prompt, target_distribution=target_distribution)
+            dist, params = elicitor.elicit(target_prompt, target_distribution=target_distribution, expert_prompt=expert_prompt)
             results.append({'field': subfield, 'target': target, 'dist': dist, 'params': params,
                             'model': args.llm_model, 'role': args.llm_role, 'shelf': args.shelf, 'roulette': args.roulette,
                             'timestamp': timestamp})
@@ -109,7 +109,7 @@ def main():
     args = config_args()
     
     data_dirpath = Path(__file__).parents[2] / 'data'
-    output_dirpath = data_dirpath / f'output/elicitation/{args.llm_role}'
+    output_dirpath = data_dirpath / f'output/elicitation/{args.llm_role}/{args.llm_model}'
     output_dirpath.mkdir(parents=True, exist_ok=True)
     
     if args.experiment == 'weather':

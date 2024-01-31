@@ -47,10 +47,10 @@ class LLMElicitor:
         }
         self.__save_log()
         
-    def elicit(self, target_quantity: str, target_distribution: str | None = None):
-        return self.__prior_elicitation(target_quantity, target_distribution)
+    def elicit(self, target_quantity: str, target_distribution: str | None = None, expert_prompt: str | None = None):
+        return self.__prior_elicitation(target_quantity, target_distribution, expert_prompt)
     
-    def __prior_elicitation(self, target_quantity: str, target_distribution: str | None = None):
+    def __prior_elicitation(self, target_quantity: str, target_distribution: str | None = None, expert_prompt: str | None = None):
         """
         Prior elicitation module
         
@@ -60,7 +60,7 @@ class LLMElicitor:
         """
         # Who is the expert?
         if self.role == 'expert':
-            system_prompt = str(self.expert_prompt or '')
+            system_prompt = str(expert_prompt or self.expert_prompt or '')
         elif self.role == 'conference':
             system_prompt = self.prompts['elicitation_framework']['conference']
         else:
