@@ -28,7 +28,10 @@ class LLMElicitor:
         self.log = {
             "model": self.model,
             "role": self.role,
-            "prompts": self.prompts,
+            "expert_prompt": self.expert_prompt,
+            "shelf": self.shelf,
+            "roulette": self.shelf,
+            # "prompts": self.prompts,
             "n_requests": {
                 "epi": 0,
                 "pi": 0
@@ -119,7 +122,7 @@ class LLMElicitor:
             parsed_response = self.__parser(pi_response) # NB could still fail a second time
         
         if self.debug:
-            print(f"- Imputed value: {parsed_response}")
+            print(f"- Elicited value: {parsed_response}")
             
         self.__save_log()
         return (target_distribution, parsed_response)
