@@ -31,7 +31,7 @@ class LLMElicitor:
             "expert_prompt": self.expert_prompt,
             "shelf": self.shelf,
             "roulette": self.shelf,
-            # "prompts": self.prompts,
+            "prompts": self.prompts,
             "n_requests": {
                 "epi": 0,
                 "pi": 0

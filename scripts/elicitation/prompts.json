@@ -31,5 +31,8 @@
   "psychology": {
     "cohen": "Cohen's delta statistic. With a Student's t prior distribution.",
     "pearson": "Pearson correlation coefficient, with beta prior distribution."
+  },
+  "behavioural_science": {
+
   }
 }

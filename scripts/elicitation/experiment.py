@@ -109,7 +109,7 @@ def main():
     args = config_args()
     
     data_dirpath = Path(__file__).parents[2] / 'data'
-    output_dirpath = data_dirpath / f'output/elicitation/{args.llm_role}/{args.llm_model}'
+    output_dirpath = data_dirpath / f'output/elicitation'
     output_dirpath.mkdir(parents=True, exist_ok=True)
     
     if args.experiment == 'weather':
