@@ -30,7 +30,7 @@ class LLMElicitor:
             "role": self.role,
             "expert_prompt": self.expert_prompt,
             "shelf": self.shelf,
-            "roulette": self.shelf,
+            "roulette": self.roulette,
             "prompts": self.prompts,
             "n_requests": {
                 "epi": 0,
