@@ -185,3 +185,17 @@ optional arguments:
 ### Modify LLM Imputer
 
 If you want to modify imputation method using LLMs, please edit `/scripts/imputation/modules/llmimputer.py`.
+
+## Prior elicitation
+
+### LLM elicitor
+
+Setup for LLM APIs is the same as for the LLM imputer. See above.
+
+#### Prompt engineering
+
+To edit prompts, edit `/scripts/elicitation/prompts.json`.
+
+### Modify LLM elicitor
+
+If you want to modify the elictation method using LLMs, please edit `/scripts/elicitation/modules/llmelicitor.py`.
