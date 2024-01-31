@@ -11,15 +11,17 @@ class LLMElicitor:
                  prompts: dict = {},
                  model: str = 'gpt-4',
                  role: str = 'expert',
-                 method: str = 'direct',
-                 expert_prompt: str | None = None,
+                 expert_prompt: str | None = "",
+                 shelf: bool = False,
+                 roulette: bool = False,
                  log_filepath: Path = None,
                  debug: bool = False):
         self.prompts = prompts
         self.expert_prompt = expert_prompt
         self.model = model
         self.role = role
-        self.method = method
+        self.shelf = shelf
+        self.roulette = roulette
         self.log_filepath = log_filepath
         self.debug = debug
         
@@ -29,7 +31,7 @@ class LLMElicitor:
             "prompts": self.prompts,
             "n_requests": {
                 "epi": 0,
-                "elicit": 0
+                "pi": 0
             },
             "n_tokens": {
                 key: {
@@ -55,7 +57,7 @@ class LLMElicitor:
         """
         # Who is the expert?
         if self.role == 'expert':
-            system_prompt = self.expert_prompt
+            system_prompt = str(self.expert_prompt or '')
         elif self.role == 'conference':
             system_prompt = self.prompts['elicitation_framework']['conference']
         else:
@@ -63,9 +65,11 @@ class LLMElicitor:
 
         # What elicitation method will be used?
         # (Decision conferencing is treated as an expert role, rather than a method)
-        if self.method in ['shelf', 'direct', 'roulette']:
-            system_prompt += self.prompts['elicitation_framework'][self.method]
-        else:
+        if self.shelf:
+            system_prompt += self.prompts['elicitation_framework']['shelf']
+        if self.roulette:
+            system_prompt += self.prompts['elicitation_framework']['roulette']
+        if not (self.shelf or self.roulette):
             system_prompt += self.prompts['elicitation_framework']['direct']
         system_prompt += self.prompts['prior_elicitation']['system_prompt_suffix']
         user_prompt_prefix = self.prompts['prior_elicitation']['user_prompt_prefix']
@@ -74,7 +78,7 @@ class LLMElicitor:
             # Unconstrained selection of parametric distribution (could be tricky to evaluate)
             target_distribution = 'any'
         user_prompt_suffix = (self.prompts['prior_elicitation']['user_prompt_suffix']['suffix'] +
-          self.prompts['prior_elicitation']['user_prompt_suffix']['suffix'][target_distribution])
+          self.prompts['prior_elicitation']['user_prompt_suffix']['distribution'][target_distribution])
         user_prompt = user_prompt_prefix + user_prompt_infix + target_quantity + user_prompt_suffix
         
         if 'mistral' in self.model:
@@ -99,9 +103,9 @@ class LLMElicitor:
             # But we should try with regex first since it will be faster than sending another API call.
             if 'mistral' in self.model:
                 messages = [
-                    {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"},
-                    {"role: assistant", "content:" pi_response},
-                    {"role": "user", "content": self.prompts['prior_elicitation']['user_prompt_suffix']['retry']}
+                    {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}" },
+                    {"role": "assistant", "content": pi_response },
+                    {"role": "user", "content": self.prompts['prior_elicitation']['user_prompt_suffix']['retry'] },
                 ]
             else:
                 messages = [
@@ -127,12 +131,12 @@ class LLMElicitor:
             self.log['n_tokens']['total'][token_type] = self.log['n_tokens']['epi'][token_type] + self.log['n_tokens']['pi'][token_type]
         self.log['n_requests']['pi'] += 1
         
-    def __parser(pi_response: str) -> dict | None:
+    def __parser(self, pi_response: str) -> dict | None:
         """
         Attempts to parse a JSON object from LLM text output.
         If no (valid) object is found, returns None.
         """
-        regex_json = r'\{.*\}'
+        regex_json = re.compile(r'\{[^{}]*\}')
         re_match = re.search(regex_json, pi_response)
         data = None
         if re_match:
@@ -143,7 +147,7 @@ class LLMElicitor:
             except json.JSONDecodeError as e:
                 print(f"Error parsing LLM JSON output: {e}\n\n{json_text}")
         else:
-            print("No valid JSON object found in LLM output.")
+            print(f"No valid JSON object found in LLM output:\n{pi_response}")
         return data
     
     def fetch_log(self):
