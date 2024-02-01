@@ -6,7 +6,8 @@ class NormalInverseGammaPrior:
     """
     Normal distribution normal inverse gamma prior.
     """
-    def __init__(self, mean, precision, alpha, beta):
+    def __init__(self, mean, precision, shape, scale):
+        alpha, beta = shape, scale
         self.prior_mean = self.post_mean = mean
         self.prior_precision = self.post_precision = precision
         self.prior_alpha = self.post_alpha = alpha
@@ -54,14 +55,17 @@ class GammaExponentialPrior:
     def log_posterior_predictive_density(self, new_data):
         shape = self.shape_post
         scale = self.scale_post
-        return np.log(shape / scale * (1 + new_data / scale) ** -(shape + 1))
-        #return stats.lomax.logpdf(new_data,
-        #                          c=self.scale_post,
-        #                          scale=self.shape_post)
+        #return np.log(shape / scale * (1 + new_data / scale) ** -(shape + 1))
+        return stats.lomax.logpdf(new_data, c=shape, scale=1/scale)
     
     def expected_log_posterior_predictive_loss(self, new_data):
-        log_pred_density = self.log_posterior_predictive_density(new_data)
-        return np.mean(-log_pred_density)
+        post_pred_scale = 1 / self.scale_post
+        post_pred_samples = stats.expon.rvs(scale=post_pred_scale, size=1000)
+        log_likelihoods = np.log(post_pred_samples)
+        elppd = np.mean(log_likelihoods)
+        return -elppd
+        #log_pred_density = self.log_posterior_predictive_density(new_data)
+        #return np.mean(-log_pred_density)
 
 def fit_empirical_distribution(observed_data, plot=True):
     distributions = [stats.norm, stats.gamma, stats.expon, stats.t]
