@@ -25,8 +25,8 @@
     }
   },
   "weather": {
-    "temperature": "Average daily temperature (C) in {city} in December. Distributed normally with normal-inverse-gamma prior.",
-    "precipitation": "Total monthly precipitation (mm) in {city} in December. Exponential likelihood with gamma prior."
+    "temperature": "Daily temperature (C) in {city} in December. Distributed normally with normal-inverse-gamma prior.",
+    "precipitation": "Daily precipitation (mm) in {city} in December. Exponential likelihood with gamma prior."
   },
   "psychology": {
     "cohen": "Cohen's delta statistic. With a Student's t prior distribution.",
