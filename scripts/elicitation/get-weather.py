@@ -8,7 +8,8 @@ folder.mkdir(parents=True, exist_ok=True)
 # Download weather data (temperature and precipitation in December) for cities:
 city_names_file = folder / 'city_names.txt'
 if city_names_file.exists():
-    city_names = open(city_names_file, 'r').readlines()
+    with open(city_names_file, 'r') as f:
+        city_names = f.open().splitlines()
 else:
     raise FileNotFoundError('Please supply a list of city names in city_names.txt')
 
