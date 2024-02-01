@@ -16,7 +16,7 @@ def config_args():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--method', type=str, default='meanmode', choices=['meanmode', 'knn', 'rf', 'llm'])
     argparser.add_argument('--downstream', action='store_true')
-    argparser.add_argument('--downstreambaseline', action='store_true')
+    argparser.add_argument('--downstreambaseline', type=str, default=None, choices=['train_complete', 'train_incomplete'])
     argparser.add_argument('--openml_id', type=int, default=None)
     argparser.add_argument('--missingness', type=str, default=None, choices=['MCAR', 'MAR', 'MNAR'])
     argparser.add_argument('--dataset', nargs='*', type=str, default=['incomplete', 'complete'])
@@ -214,20 +214,23 @@ def downstream_baseline_evaluation(args: argparse.Namespace, timestamp: str, dat
         X_categories_filepath = openml_dirpath / f'{openml_id}/X_categories.json'
 
         if dataset_type == 'complete':
-            groundtruth_dirpath = input_dirpath / 'original'
-            X_train_filepath = groundtruth_dirpath / f'{openml_id}/X_train.csv'
-            X_test_filepath = groundtruth_dirpath / f'{openml_id}/X_test.csv'
-            y_train_filepath = groundtruth_dirpath / f'{openml_id}/y_train.csv'
-            y_test_filepath = groundtruth_dirpath / f'{openml_id}/y_test.csv'
+            complete_dirpath = input_dirpath / 'original'
+            incomplete_dirpath = input_dirpath / 'corrupted'
+            if args.downstreambaseline == 'train_complete':
+                X_train_filepath = complete_dirpath / f'{openml_id}/X_train.csv'
+            else:
+                X_train_filepath = incomplete_dirpath / f'{openml_id}/{missingness}/X_train.csv'
+            X_test_filepath = incomplete_dirpath / f'{openml_id}/{missingness}/X_test.csv'
+            y_train_filepath = complete_dirpath / f'{openml_id}/y_train.csv'
+            y_test_filepath = complete_dirpath / f'{openml_id}/y_test.csv'
 
-        if args.downstream:
-            downstream_evaluation(
-                args=args, timestamp=timestamp, openml_id=openml_id, missingness=missingness,
-                X_train_filepath=X_train_filepath, X_test_filepath=X_test_filepath,
-                y_train_filepath=y_train_filepath, y_test_filepath=y_test_filepath,
-                results_filepath=downstream_results_filepath, X_incomplete_filepath=None,
-                X_categories_filepath=X_categories_filepath
-            )
+        downstream_evaluation(
+            args=args, timestamp=timestamp, openml_id=openml_id, missingness=missingness,
+            X_train_filepath=X_train_filepath, X_test_filepath=X_test_filepath,
+            y_train_filepath=y_train_filepath, y_test_filepath=y_test_filepath,
+            results_filepath=downstream_results_filepath, X_incomplete_filepath=None,
+            X_categories_filepath=X_categories_filepath
+        )
 
     return
 
@@ -243,8 +246,10 @@ def main():
     output_dirpath = data_dirpath / f'output/imputation/{args.method}'
     if args.method == 'llm':
         output_dirpath = data_dirpath / f'output/imputation/{args.method}/{args.llm_model}'
-    if args.downstreambaseline:
-        output_dirpath = data_dirpath / f'output/imputation/downstreambaseline'
+    if args.downstreambaseline == 'train_complete':
+        output_dirpath = data_dirpath / f'output/imputation/baseline/train_complete'
+    if args.downstreambaseline == 'train_incomplete':
+        output_dirpath = data_dirpath / f'output/imputation/baseline/train_incomplete'
     output_dirpath.mkdir(parents=True, exist_ok=True)
 
     if 'complete' in args.dataset:
