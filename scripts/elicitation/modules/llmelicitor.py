@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 from dotenv import load_dotenv
 import os
-import pandas as pd
 import re
+from collections.abc import Iterable
 
 class LLMElicitor:
     def __init__(self,
@@ -100,7 +100,7 @@ class LLMElicitor:
         
         # Parse the result.
         parsed_response = self.__parser(pi_response)
-        if parsed_response is None:
+        if parsed_response is None or not is_flat_dict(parsed_response):
             # If the __parser fails, ask the LLM to parse it for us by repeating the user_prompt_suffix. Then run it through the parser again.
             # This is done by passing the LLM's response to role `assistant`, i.e. chat history. Then asking just for formatting as a follow-up.
             # But we should try with regex first since it will be faster than sending another API call.
@@ -108,7 +108,8 @@ class LLMElicitor:
                 messages = [
                     {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}" },
                     {"role": "assistant", "content": pi_response },
-                    {"role": "user", "content": self.prompts['prior_elicitation']['user_prompt_suffix']['retry'] },
+                    {"role": "user", "content": self.prompts['prior_elicitation']['user_prompt_suffix']['retry'] +
+                     self.prompts['prior_elicitation']['user_prompt_suffix']['distribution'][target_distribution]},
                 ]
             else:
                 messages = [
@@ -208,3 +209,8 @@ class LLMElicitor:
 
         return (response, n_tokens)
 
+def is_flat_dict(dictionary: dict) -> bool:
+    if not isinstance(dictionary, dict):
+        return False
+    is_iterable = [isinstance(val, Iterable) for val in dictionary.values()]
+    return not any(is_iterable)

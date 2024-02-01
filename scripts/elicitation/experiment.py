@@ -83,7 +83,7 @@ def elicit_psychology(args: argparse.Namespace,
     results = []
     for subfield in ['social psychology', 'developmental psychology', 'cognitive neuroscience']:
         expert_prompt = f'You are an expert in {subfield}.' # only used if args.llm_role == 'expert'
-        target_qty = "Imagine what small-to-medium effect sizes in {subfield} look like. "
+        target_qty = f"Imagine what small-to-medium effect sizes in {subfield} look like. "
         "Which effect size would you expect as the most probable one to be found? "
         "Which range of values would you consider possible? "
         "Specifically, we are interested in: "

@@ -11,15 +11,15 @@
     "user_prompt_prefix": "THE PROBLEM: We are fitting a Bayesian model to a small dataset, and want to elicit an informative prior distribution.",
     "user_prompt_infix": "YOUR TASK: Please use your experience and knowledge to provide an informed prior distribution for the following quantity.\r\n\r\n",
     "user_prompt_suffix": {
-      "suffix": "\r\n\r\nIMPORTANT: Please do not provide any explanation or clarification. Only provide single object in JSON format.\nRESPONSE FORMAT: ",
-      "retry": "Parse the result and provide a single object in JSON format.\nRESPONSE FORMAT:",
+      "suffix": "\r\n\r\nIMPORTANT: Please do not provide any explanation or clarification. Only provide single non-nested object in JSON format.\nRESPONSE FORMAT: ",
+      "retry": "Parse the result and provide a single unnested object in JSON format.\nRESPONSE FORMAT: ",
       "distribution": {
-        "gamma": "{ \"alpha\": value1, \"beta\": value2 }",
+        "gamma": "{ \"shape\": value1, \"scale\": value2 }",
         "beta": "{ \"alpha\": value1, \"beta\": value2 }",
-        "normal_inverse_gamma": "{ \"mu\": value1, \"lambda\": value2, \"alpha\": value3, \"beta\": value4 }",
-        "normal": "{ \"mu\": value1, \"sigma\": sigma }",
+        "normal_inverse_gamma": "{ \"mean\": value1, \"precision\": value2, \"shape\": value3, \"scale\": value4 }",
+        "normal": "{ \"mean\": value1, \"std_dev\": value2 }",
         "inverse_gamma": "{ \"alpha\": value1, \"beta\": value2 }",
-        "student_t": "{ \"mu\": value1, \"scale\": value2, \"df\": value3 }",
+        "student_t": "{ \"loc\": value1, \"scale\": value2, \"df\": value3 }",
         "any": "{ \"distribution\": name, \"param1\": value1, \"param2\": value2 }"
       }
     }
