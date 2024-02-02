@@ -1,71 +1,77 @@
 import numpy as np
-from scipy import stats
+from scipy import stats, integrate
 import matplotlib.pyplot as plt
-
+    
 class NormalInverseGammaPrior:
-    """
-    Normal distribution normal inverse gamma prior.
-    """
-    def __init__(self, mean, precision, shape, scale):
-        alpha, beta = shape, scale
-        self.prior_mean = self.post_mean = mean
-        self.prior_precision = self.post_precision = precision
-        self.prior_alpha = self.post_alpha = alpha
-        self.prior_beta = self.post_beta = beta
+    def __init__(self, mean, variance, shape, scale):
+        self.prior_mean, self.prior_variance = mean, variance
+        self.prior_shape, self.prior_scale = shape, scale
+        self.prior = {'mu': stats.norm(mean, np.sqrt(variance)),
+                      'sigma2': stats.invgamma(shape / 2, shape * variance / 2)}
+        self.likelihood = stats.norm
         
-    def update_posterior(self, data):
+    def fit(self, data):
+        """Update the conjugate posterior."""
         n = len(data)
         x_bar = np.mean(data)
+        mean, variance, shape, scale = self.prior_mean, self.prior_variance, self.prior_shape, self.prior_scale
+        # Posterior distribution
+        shape_n = shape + n / 2
+        scale_n = 1 / (1 / scale + n / 2 * variance + (shape * n) / (2 * (shape + n)) * (x_bar - mean) ** 2)
+        mean_n = (scale * mean + n * x_bar) / (scale + n)
+        var_n = scale_n / shape_n
+        self.posterior = {'mu': stats.norm(loc=mean_n, scale=np.sqrt(var_n)),
+                          'sigma2': stats.invgamma(shape_n, scale=scale_n)}
+        # Posterior predictive distribution
+        df_pp, loc_pp, scale_pp = shape_n, mean_n, np.sqrt(scale_n * (1 + 1/ shape_n))
+        self.posterior_pred = stats.t(df=df_pp, loc=loc_pp, scale=scale_pp)
         
-        post_precision = self.prior_precision + n
-        post_mean = (self.prior_precision * self.prior_mean + n * x_bar) / post_precision
-        post_alpha = self.prior_alpha + n / 2
-        post_beta = self.prior_beta + 0.5 * np.sum((data - x_bar) ** 2) + (n * self.prior_precision) / (2 * post_precision)
+    def log_pointwise_predictive_density(self, newdata, M=10000):
+        """
+        How well the model fits the data.
         
-        self.post_mean = post_mean
-        self.post_precision = post_precision
-        self.post_alpha = post_alpha
-        self.post_beta = post_beta
+        http://www.stat.columbia.edu/~gelman/research/unpublished/waic_understand_final.pdf
+        """
+        mu_samples = self.posterior['mu'].rvs(M)
+        sigma2_samples = self.posterior['sigma2'].rvs(M)
+        # likelihood = lambda x: self.likelihood.pdf(x, loc=mu_samples, scale=np.sqrt(sigma2_samples))
+        # lppd = [np.log(np.mean(likelihood(y))) for y in newdata]
+        log_lik = lambda x: self.likelihood.logpdf(x, loc=mu_samples, scale=np.sqrt(sigma2_samples))
+        lppd = [log_mean(log_lik(y)) for y in newdata]
+        return np.sum(lppd)
     
-    def log_posterior_predictive_density(self, new_data):
-        df = 2 * self.post_alpha
-        loc = self.post_mean
-        scale = np.sqrt(self.post_beta * (1 + 1 / self.post_alpha) / self.post_alpha)
-        return stats.t.logpdf(new_data, df=df, loc=loc, scale=scale)
-    
-    def expected_log_posterior_predictive_loss(self, new_data):
-        log_pred_density = self.log_posterior_predictive_density(new_data)
-        return np.mean(-log_pred_density)
-    
+    lppd = log_pointwise_predictive_density
+
 class GammaExponentialPrior:
-    """
-    Exponential distribution with conjugate gamma prior.
-    """
     def __init__(self, shape, scale):
-        self.prior_shape = self.post_shape = shape
-        self.prior_scale = self.post_scale = scale
+        self.prior_shape = shape
+        self.prior_scale = scale
+        self.prior = stats.gamma(shape, scale=scale)
+        self.likelihood = stats.expon
     
-    def update_posterior(self, data):
+    def fit(self, data):
+        """Update the conjugate posterior."""
         n = len(data)
-        post_shape = self.prior_shape + n
-        post_scale = self.prior_scale + np.sum(data)
-        self.shape_post = post_shape
-        self.scale_post = post_scale
+        shape_n = self.prior_shape + n
+        scale_n = 1 / (1 / self.prior_scale + np.sum(data))
+        self.posterior = stats.gamma(shape_n, scale=scale_n)
         
-    def log_posterior_predictive_density(self, new_data):
-        shape = self.shape_post
-        scale = self.scale_post
-        #return np.log(shape / scale * (1 + new_data / scale) ** -(shape + 1))
-        return stats.lomax.logpdf(new_data, c=shape, scale=1/scale)
+    def log_pointwise_predictive_density(self, newdata, M=1000):
+        """
+        How well the model fits the data.
+        
+        http://www.stat.columbia.edu/~gelman/research/unpublished/waic_understand_final.pdf
+        """
+        theta_samples = self.posterior.rvs(M)
+        log_lik = lambda x: self.likelihood.logpdf(x, scale=1/theta_samples)
+        lppd = [log_mean(log_lik(y)) for y in newdata]
+        return np.sum(lppd)
     
-    def expected_log_posterior_predictive_loss(self, new_data):
-        post_pred_scale = 1 / self.scale_post
-        post_pred_samples = stats.expon.rvs(scale=post_pred_scale, size=1000)
-        log_likelihoods = np.log(post_pred_samples)
-        elppd = np.mean(log_likelihoods)
-        return -elppd
-        #log_pred_density = self.log_posterior_predictive_density(new_data)
-        #return np.mean(-log_pred_density)
+    lppd = log_pointwise_predictive_density
+
+def log_mean(logxs): # log-sum-exp trick
+    max_logx = np.max(logxs)
+    return max_logx + np.log(np.mean(np.exp(logxs - max_logx)))
 
 def fit_empirical_distribution(observed_data, plot=True):
     distributions = [stats.norm, stats.gamma, stats.expon, stats.t]
@@ -96,18 +102,40 @@ def fit_empirical_distribution(observed_data, plot=True):
         
 
 if __name__ == "__main__":
-    nig = NormalInverseGammaPrior(2, 1, 1, 1)
-    data = np.random.normal(2, 3, size=20)
-    print(fit_empirical_distribution(data))
-    nig.update_posterior(data)
-    new_data = np.random.normal(3, 4, size=100)
-    print("Expected predictive loss:", nig.expected_log_posterior_predictive_loss(new_data))
+    mean, variance, shape, scale = 0, 1, 2, 2
+    data = np.random.normal(mean, variance, size=200)
+    test = np.random.normal(mean, variance, size=100)
+    lppd_values = []
+    for n in range(1, len(data) + 1):
+        subset_data = data[:n]
+        model = NormalInverseGammaPrior(mean, variance, shape, scale)
+        model.fit(subset_data)
+        lppd = model.lppd(test)
+        lppd_values.append(lppd)
+        
+    plt.plot(range(1, len(data) + 1), lppd_values, marker='o')
+    plt.xlabel('Number of data points')
+    plt.ylabel('Expected log predictive density (ELPD)')
+    plt.title('ELPD vs. number of data points')
+    plt.suptitle('Gaussian random variable')
+    plt.show()
     
-    gexp = GammaExponentialPrior(1, 1)
-    data2 = np.random.exponential(2, size=20)
-    print(fit_empirical_distribution(data2))
-    gexp.update_posterior(data2)
-    new_data2 = np.random.exponential(2, size=100)
-    print("Expected predictive loss:", gexp.expected_log_posterior_predictive_loss(new_data2))
+    shape, scale = 2, 1
+    data = np.random.exponential(2, size=200)
+    test = [2.0] #np.random.exponential(2, size=100)
+    lppd_values = []
+    for n in range(1, len(data) + 1):
+        subset_data = data[:n]
+        model = GammaExponentialPrior(2, .001)
+        model.fit(subset_data)
+        lppd = model.lppd(test)
+        lppd_values.append(lppd)
+        
+    plt.plot(range(1, len(data) + 1), lppd_values, marker='o')
+    plt.xlabel('Number of data points')
+    plt.ylabel('Expected log predictive density (ELPD)')
+    plt.title('ELPD vs. number of data points')
+    plt.suptitle('Exponential random variable')
+    plt.show()
     
     
