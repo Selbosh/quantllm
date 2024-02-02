@@ -14,12 +14,15 @@ class NormalInverseGammaPrior:
         """Update the conjugate posterior."""
         n = len(data)
         x_bar = np.mean(data)
-        mean, variance, shape, scale = self.prior_mean, self.prior_variance, self.prior_shape, self.prior_scale
+        x_sum_sq = np.sum((data - x_bar) ** 2)
+        mean_0, prec_0 = self.prior_mean, 1 / self.prior_variance
+        shape_0, scale_0 = self.prior_shape, self.prior_scale
         # Posterior distribution
-        shape_n = shape + n / 2
-        scale_n = 1 / (1 / scale + n / 2 * variance + (shape * n) / (2 * (shape + n)) * (x_bar - mean) ** 2)
-        mean_n = (scale * mean + n * x_bar) / (scale + n)
-        var_n = scale_n / shape_n
+        prec_n = prec_0 + n
+        mean_n = (prec_0 * mean_0 + n * x_bar) / prec_n
+        shape_n = shape_0 + n / 2
+        scale_n = scale_0 + 0.5 * x_sum_sq + (prec_0 * n * (x_bar - mean_0) ** 2) / (2 * prec_n)
+        var_n = 1 / prec_n
         self.posterior = {'mu': stats.norm(loc=mean_n, scale=np.sqrt(var_n)),
                           'sigma2': stats.invgamma(shape_n, scale=scale_n)}
         # Posterior predictive distribution
@@ -102,9 +105,10 @@ def fit_empirical_distribution(observed_data, plot=True):
         
 
 if __name__ == "__main__":
-    mean, variance, shape, scale = 0, 1, 2, 2
-    data = np.random.normal(mean, variance, size=200)
-    test = np.random.normal(mean, variance, size=100)
+    np.random.seed(42)
+    mean, variance, shape, scale = 0, .5, 5, 0.5
+    data = np.random.normal(5, 1, size=100)
+    test = np.random.normal(5, 1, size=100)
     lppd_values = []
     for n in range(1, len(data) + 1):
         subset_data = data[:n]
@@ -120,13 +124,13 @@ if __name__ == "__main__":
     plt.suptitle('Gaussian random variable')
     plt.show()
     
-    shape, scale = 2, 1
-    data = np.random.exponential(2, size=200)
+    shape, scale = 2, 0.001
+    data = np.random.exponential(2, size=100)
     test = [2.0] #np.random.exponential(2, size=100)
     lppd_values = []
     for n in range(1, len(data) + 1):
         subset_data = data[:n]
-        model = GammaExponentialPrior(2, .001)
+        model = GammaExponentialPrior(shape, scale)
         model.fit(subset_data)
         lppd = model.lppd(test)
         lppd_values.append(lppd)
