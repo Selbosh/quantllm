@@ -106,40 +106,48 @@ def fit_empirical_distribution(observed_data, plot=True):
 
 if __name__ == "__main__":
     np.random.seed(42)
-    mean, variance, shape, scale = 0, .5, 5, 0.5
     data = np.random.normal(5, 1, size=100)
-    test = np.random.normal(5, 1, size=100)
-    lppd_values = []
-    for n in range(1, len(data) + 1):
+    test = np.random.normal(5, 1, size=50)
+    lppd = {'good': [], 'bad': []}
+    n_range = range(1, len(data) + 1)
+    for n in n_range:
         subset_data = data[:n]
-        model = NormalInverseGammaPrior(mean, variance, shape, scale)
-        model.fit(subset_data)
-        lppd = model.lppd(test)
-        lppd_values.append(lppd)
-        
-    plt.plot(range(1, len(data) + 1), lppd_values, marker='o')
+        bad = NormalInverseGammaPrior(0, .5, 5, .5)
+        good = NormalInverseGammaPrior(7.5, 1, 2, 1)
+        bad.fit(subset_data)
+        good.fit(subset_data)
+        lppd['bad'] += [bad.lppd(test)]
+        lppd['good'] += [good.lppd(test)]
+    
+    plt.plot(n_range, lppd['bad'], marker='o', label='Bad prior', color='blue')
+    plt.plot(n_range, lppd['good'], marker='o', label='Good prior', color='green')
     plt.xlabel('Number of data points')
     plt.ylabel('Expected log predictive density (ELPD)')
     plt.title('ELPD vs. number of data points')
     plt.suptitle('Gaussian random variable')
+    plt.legend()
     plt.show()
     
-    shape, scale = 2, 0.001
     data = np.random.exponential(2, size=100)
-    test = [2.0] #np.random.exponential(2, size=100)
-    lppd_values = []
-    for n in range(1, len(data) + 1):
+    test = np.random.exponential(2, size=50)
+    lppd = {'good': [], 'bad': []}
+    n_range = range(1, len(data) + 1)
+    for n in n_range:
         subset_data = data[:n]
-        model = GammaExponentialPrior(shape, scale)
-        model.fit(subset_data)
-        lppd = model.lppd(test)
-        lppd_values.append(lppd)
-        
-    plt.plot(range(1, len(data) + 1), lppd_values, marker='o')
+        bad = GammaExponentialPrior(20, .01)
+        good = GammaExponentialPrior(2, 4)
+        bad.fit(subset_data)
+        good.fit(subset_data)
+        lppd['bad'] += [bad.lppd(test)]
+        lppd['good'] += [good.lppd(test)]
+    
+    plt.plot(n_range, lppd['bad'], marker='o', label='Bad prior', color='blue')
+    plt.plot(n_range, lppd['good'], marker='o', label='Good prior', color='green')
     plt.xlabel('Number of data points')
     plt.ylabel('Expected log predictive density (ELPD)')
     plt.title('ELPD vs. number of data points')
     plt.suptitle('Exponential random variable')
+    plt.legend()
     plt.show()
     
     
