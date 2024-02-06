@@ -160,10 +160,7 @@ cython_debug/
 .idea/
 
 poetry.lock
-*.csv
-*.json
-*.txt
-data/
-
-# Exeptions
-!prompts.json
+/data/*
+!/data/openml
+/data/openml/*
+!/data/openml/openml-custom-list.csv
