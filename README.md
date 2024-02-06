@@ -13,27 +13,51 @@ e.g., `<python version>` is equal to 3.9.17
 
 For missing packages, use `poetry add <package name>` (see [poetry docs](https://python-poetry.org/)).
 
-## Get data
+## Directory structure
 
-You can get OpenML-CC18 Curated Classification benchmark datasets and download them locally. The downloaded data will be stored in `/data/openml`. For each dataset, the following files will be downloaded.
-- `X.csv` : the feature matrix
-- `y.csv` : the classification labels
-- `X_categories.json` : a list of categorical variables in the features
-- `y_categories.json` : a list of class in `y.csv`
-- `description.txt` : the description of the dataset written in OpenML
-- `details.json` : a meta data of the dataset
+```
+.
+├── README.md
+├── pyproject.toml  : poetry dependency file
+├── poetry.lock     : poetry lock file (created after the installation runs)
+├── scripts
+│   ├── imputation  : scripts for missing data imputation
+│   └── elicitation : scripts for prior elicitation
+├── data (basically ignored by git)
+│   ├── openml      : raw data of OpenML-CC18
+│   ├── cities      : cities data for prior elicitation
+│   ├── working     : calculated features, processing steps
+│   └── output      : classification results, figures, etc.
+└── .env : environmental variables (create this manually)
+```
+
+## Get OpenML-CC18
+
+You can get OpenML-CC18 Curated Classification benchmark datasets and download them locally. The downloaded data will be stored in `data/openml`. The following files will be downloaded.
+
+```
+data/openml
+├── [OpenML ID]
+│   ├── X.csv                : feature matrix
+│   ├── y.csv                : classification labels
+│   ├── X_categories.json    : list of categorical variables in the features
+│   ├── y_categories.json    : list of class in `y.csv`
+│   ├── description.txt      : description of the dataset
+│   └── details.json         : meta data of the dataset
+└── openml-datasets-CC18.csv : list of downloaded datasets
+```
 
 ```bash
 poetry run python scripts/get-datasets.py 
 ```
 
-## Missing values imputation
+## Missing data imputation
 
 ### Preprocess
 
 In the preprocessing step, you will split the original OpenML datasets into train and test subsets, and generate missing values.
-Please get OpenML datasets and store them in `/data/openml` in advance.
-The splitted complete datasets will be stored in `/data/working/complete`, and the incomplete datasets (datasets with "real" missing values) will be stored in `/data/working/incomplete`.
+Please get OpenML datasets and store them in `data/openml` in advance.
+The splitted complete datasets will be stored in `data/working/complete`, and the incomplete datasets (datasets with "real" missing values) will be stored in `data/working/incomplete`.
 For the complete datasets, the code artificially generates missing values based on missingness patterns (MCAR, MAR, MNAR).
 
 ```bash
@@ -68,23 +92,23 @@ You can use OpenAI API, or other APIs compatible with OpenAI API, e.g. [llama-cp
 Instructions for each model are the following:
 
 - OpenAI API
-  Please set your API key in `/.env` as
+  Please set your API key in `.env` as
   ```
   OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
   ```
 - Other OpenAI API compatible APIs
-  Please set a base URL to the inference server in `/.env` as
+  Please set a base URL to the inference server in `.env` as
   ```
   CUSTOM_INFERENCE_SERVER_URL="YOUR_CUSTOM_INFERENCE_SERVER_URL"
   ```
-  If an API key is required, please set it in `/.env` as
+  If an API key is required, please set it in `.env` as
   ```
   CUSTOM_API_KEY="YOUR_CUSTOM_API_KEY"
   ```
 
 #### Prompt engineering
 
-To edit prompts, edit `/scripts/imputation/prompts.json`.
+To edit prompts, edit `scripts/imputation/prompts.json`.
 
 ```json
 {
@@ -113,7 +137,7 @@ There may be multiple missing values in the target row. This will be done by rep
 
 #### Note
 
-- Please run `generate-missing-values.py` (see above) in advance. Corrupted datasets (datasets with missing values) and the log file (`log.csv`) must be stored in `/data/working/complete` and `/data/working/incomplete`.
+- Please run `generate-missing-values.py` (see above) in advance. Corrupted datasets (datasets with missing values) and the log file (`log.csv`) must be stored in `data/working/complete` and `data/working/incomplete`.
 - Evaluation is currently unavailable. Needs update.
 
 #### Imputation methods
@@ -184,7 +208,7 @@ optional arguments:
 
 ### Modify LLM Imputer
 
-If you want to modify imputation method using LLMs, please edit `/scripts/imputation/modules/llmimputer.py`.
+If you want to modify imputation method using LLMs, please edit `scripts/imputation/modules/llmimputer.py`.
 
 ## Prior elicitation
 
@@ -194,8 +218,8 @@ Setup for LLM APIs is the same as for the LLM imputer. See above.
 
 #### Prompt engineering
 
-To edit prompts, edit `/scripts/elicitation/prompts.json`.
+To edit prompts, edit `scripts/elicitation/prompts.json`.
 
 ### Modify LLM elicitor
 
-If you want to modify the elictation method using LLMs, please edit `/scripts/elicitation/modules/llmelicitor.py`.
+If you want to modify the elictation method using LLMs, please edit `scripts/elicitation/modules/llmelicitor.py`.
