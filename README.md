@@ -23,7 +23,7 @@ For missing packages, use `poetry add <package name>` (see [poetry docs](https:/
 ├── scripts
 │   ├── imputation  : scripts for missing data imputation
 │   └── elicitation : scripts for prior elicitation
-└── data (basically ignored by git)
+├── data (basically ignored by git)
 │   ├── openml      : raw data of OpenML-CC18
 │   ├── cities      : cities data for prior elicitation
 │   ├── working     : calculated features, processing steps
@@ -38,12 +38,12 @@ You can get OpenML-CC18 Curated Classification benchmark datasets and download t
 ```
 data/openml
 ├── [OpenML ID]
-│   ├── X.csv                : feature matrix
-│   ├── y.csv                : classification labels
-│   ├── X_categories.json    : list of categorical variables in the features
-│   ├── y_categories.json    : list of class in `y.csv`
-│   ├── description.txt      : description of the dataset
-│   └── details.json         : meta data of the dataset
+│   ├── X.csv                : feature matrix
+│   ├── y.csv                : classification labels
+│   ├── X_categories.json    : list of categorical variables in the features
+│   ├── y_categories.json    : list of class in `y.csv`
+│   ├── description.txt      : description of the dataset
+│   └── details.json         : meta data of the dataset
 └── openml-datasets-CC18.csv : list of downloaded datasets
 ```
 
