@@ -12,7 +12,15 @@ from pathlib import Path
 
 
 class LLMImputer():
-    def __init__(self, na_value=np.nan, prompts: dict = {}, model: str = 'gpt-4', role: str = 'expert', X_categories: dict = {}, dataset_description: str = "", log_filepath: Path = None, debug: bool = False):
+    def __init__(self,
+                 na_value=np.nan,
+                 prompts: dict = {},
+                 model: str = 'gpt-4',
+                 role: str = 'expert',
+                 X_categories: dict = {},
+                 dataset_description: str = "",
+                 log_filepath: Path = None,
+                 debug: bool = False):
         '''
         Args:
             - `na_value`: The value to be replaced with the imputation. Default is `np.nan`.
@@ -99,7 +107,10 @@ class LLMImputer():
     def fetch_log(self):
         return self.log
 
-    def __num_tokens_from_messages(self, system_prompt, user_prompt, model="gpt-4"):
+    def __num_tokens_from_messages(self,
+                                   system_prompt,
+                                   user_prompt,
+                                   model="gpt-4"):
         """
         Return the number of tokens used by a list of messages.
         Basically, this function is a copy of the sample code from OpenAI.
@@ -229,7 +240,7 @@ class LLMImputer():
             )
         else:
             client = openai.OpenAI(
-                base_url=os.getenv("CUSTOM_INFERENCE_SERVER_URL"), 
+                base_url=os.getenv("CUSTOM_INFERENCE_SERVER_URL"),
                 api_key="not-needed"
             )
 

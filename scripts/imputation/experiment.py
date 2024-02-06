@@ -29,7 +29,22 @@ def config_args():
     return argparser.parse_args()
 
 
-def experiment(args: argparse.Namespace, timestamp: str, dataset_type: str, openml_dirpath: Path, input_dirpath: Path, output_dirpath: Path):
+def experiment(args: argparse.Namespace,
+               timestamp: str,
+               dataset_type: str,
+               openml_dirpath: Path,
+               input_dirpath: Path,
+               output_dirpath: Path):
+    """A function to run the imputation and downstream experiments.
+
+    Args:
+        args (argparse.Namespace): arguments from the command line
+        timestamp (str): %Y-%m-%d %H:%M:%S
+        dataset_type (str): 'incomplete' or 'complete'
+        openml_dirpath (Path): a path to the original OpenML datasets
+        input_dirpath (Path): a path to the input directory
+        output_dirpath (Path): a path to the output directory
+    """
     imputation_results_filepath = output_dirpath / f'imputation_{timestamp}.csv'
     if args.evaluate:
         with open(imputation_results_filepath, 'w') as f:
@@ -112,7 +127,16 @@ def experiment(args: argparse.Namespace, timestamp: str, dataset_type: str, open
     return
 
 
-def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: int, train_or_test: str, missingness: str | None, X_groundtruth_filepath: Path | None, X_corrupted_filepath: Path, X_imputed_filepath: Path, X_categories_filepath: Path, results_filepath: Path | None):
+def imputation_experiment(args: argparse.Namespace,
+                          timestamp: str,
+                          openml_id: int,
+                          train_or_test: str,
+                          missingness: str | None,
+                          X_groundtruth_filepath: Path | None,
+                          X_corrupted_filepath: Path,
+                          X_imputed_filepath: Path,
+                          X_categories_filepath: Path,
+                          results_filepath: Path | None):
     '''
     This function runs the imputation experiment for a specific dataset.
     
@@ -205,7 +229,18 @@ def imputation_experiment(args: argparse.Namespace, timestamp: str, openml_id: i
     return
 
 
-def downstream_experiment(args: argparse.Namespace, timestamp: str, openml_id: int, missingness: str, X_train_filepath: Path, X_test_filepath: Path, y_train_filepath: Path, y_test_filepath: Path, results_filepath: Path, X_incomplete_filepath: Path, X_imputed_filepath: Path, X_categories_filepath: Path):
+def downstream_experiment(args: argparse.Namespace,
+                          timestamp: str,
+                          openml_id: int,
+                          missingness: str,
+                          X_train_filepath: Path,
+                          X_test_filepath: Path,
+                          y_train_filepath: Path,
+                          y_test_filepath: Path,
+                          results_filepath: Path,
+                          X_incomplete_filepath: Path,
+                          X_imputed_filepath: Path,
+                          X_categories_filepath: Path):
     if args.debug:
         print(f'Imputing OpenML Id: {openml_id}')
 
@@ -252,22 +287,33 @@ def main():
 
     data_dirpath = Path(__file__).parents[2] / 'data'
     openml_dirpath = data_dirpath / 'openml'
+    imputation_dirpath = data_dirpath / 'output/imputation'
 
-    output_dirpath = data_dirpath / f'output/imputation/{args.method}'
+    output_dirpath = imputation_dirpath / args.method
     if args.method == 'llm':
-        output_dirpath = data_dirpath / f'output/imputation/{args.method}/{args.llm_role}/{args.llm_model}'
+        output_dirpath = imputation_dirpath / f'{args.method}/{args.llm_role}/{args.llm_model}'
     output_dirpath.mkdir(parents=True, exist_ok=True)
 
     if 'complete' in args.dataset:
         input_dirpath = data_dirpath / 'working/complete'
         experiment(
-            args=args, timestamp=timestamp, dataset_type='complete', openml_dirpath=openml_dirpath, input_dirpath=input_dirpath, output_dirpath=output_dirpath
+            args=args,
+            timestamp=timestamp,
+            dataset_type='complete',
+            openml_dirpath=openml_dirpath,
+            input_dirpath=input_dirpath,
+            output_dirpath=output_dirpath
         )
 
     if 'incomplete' in args.dataset:
         input_dirpath = data_dirpath / 'working/incomplete'
         experiment(
-            args=args, timestamp=timestamp, dataset_type='incomplete', openml_dirpath=openml_dirpath, input_dirpath=input_dirpath, output_dirpath=output_dirpath
+            args=args,
+            timestamp=timestamp,
+            dataset_type='incomplete',
+            openml_dirpath=openml_dirpath,
+            input_dirpath=input_dirpath,
+            output_dirpath=output_dirpath
         )
 
 
