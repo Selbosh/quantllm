@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
-import tiktoken
 import re
 import json
 
@@ -38,7 +37,12 @@ class LLMImputer():
         self.log_filepath = log_filepath
 
         self.n_input_tokens_tiktoken = 0 if self.model.startswith("gpt") else None
-        self.n_tokens = {"n_input_tokens": 0, "n_input_tokens_tiktoken": 0, "n_output_tokens": 0, "n_total_tokens": 0}
+        self.n_tokens = {
+            "n_input_tokens": 0,
+            "n_input_tokens_tiktoken": 0,
+            "n_output_tokens": 0,
+            "n_total_tokens": 0
+        }
         self.debug = debug
         self.log = {
             "model": self.model,
@@ -106,62 +110,6 @@ class LLMImputer():
 
     def fetch_log(self):
         return self.log
-
-    def __num_tokens_from_messages(self,
-                                   system_prompt,
-                                   user_prompt,
-                                   model="gpt-4"):
-        """
-        Return the number of tokens used by a list of messages.
-        Basically, this function is a copy of the sample code from OpenAI.
-
-        Args:
-            - `system_prompt`: The system prompt or context for the conversation.
-            - `user_prompt`: The user's input or question.
-            - `model`: The model to be used (e.g., 'gpt-4').
-        """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-
-        try:
-            encoding = tiktoken.encoding_for_model(model)
-        except KeyError:
-            print("Warning: model not found. Using cl100k_base encoding.")
-            encoding = tiktoken.get_encoding("cl100k_base")
-        if model in {
-                "gpt-3.5-turbo-0613",
-                "gpt-3.5-turbo-16k-0613",
-                "gpt-4-0314",
-                "gpt-4-32k-0314",
-                "gpt-4-0613",
-                "gpt-4-32k-0613",
-            }:
-            tokens_per_message = 3
-            tokens_per_name = 1
-        elif model == "gpt-3.5-turbo-0301":
-            tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
-            tokens_per_name = -1  # if there's a name, the role is omitted
-        elif "gpt-3.5-turbo" in model:
-            print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
-            return self.__num_tokens_from_messages(system_prompt=system_prompt, user_prompt=user_prompt, model="gpt-3.5-turbo-0613")
-        elif "gpt-4" in model:
-            print("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
-            return self.__num_tokens_from_messages(system_prompt=system_prompt, user_prompt=user_prompt, model="gpt-4-0613")
-        else:
-            raise NotImplementedError(
-                f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens."""
-            )
-        num_tokens = 0
-        for message in messages:
-            num_tokens += tokens_per_message
-            for key, value in message.items():
-                num_tokens += len(encoding.encode(value))
-                if key == "name":
-                    num_tokens += tokens_per_name
-        num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
-        return num_tokens
 
     def __generate_dataset_variables_description(self, X: pd.DataFrame):
         """
@@ -286,18 +234,12 @@ class LLMImputer():
             ]
         epi_max_tokens = 2048
 
-        if self.model.startswith("gpt"):
-            n_input_tokens_tiktoken = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
-            if self.debug:
-                print(f"- Tiktoken: {n_input_tokens_tiktoken} tokens")
-            self.n_input_tokens_tiktoken += n_input_tokens_tiktoken
-
         epi_prompt, ept_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=epi_max_tokens)
         self.log["prompts"]["expert_prompt"] = epi_prompt
-        self.log["n_tokens"]["epi"] = ept_n_tokens
-        self.log["n_tokens"]["total"]["n_input_tokens"] = self.log["n_tokens"]["epi"]["n_input_tokens"] + self.log["n_tokens"]["di"]["n_input_tokens"]
-        self.log["n_tokens"]["total"]["n_output_tokens"] = self.log["n_tokens"]["epi"]["n_output_tokens"] + self.log["n_tokens"]["di"]["n_output_tokens"]
-        self.log["n_tokens"]["total"]["n_total_tokens"] = self.log["n_tokens"]["epi"]["n_total_tokens"] + self.log["n_tokens"]["di"]["n_total_tokens"]
+        for tt in ['input', 'output', 'total']:
+            token_type = f'n_{tt}_tokens'
+            self.log['n_tokens']['epi'][token_type] += ept_n_tokens[token_type]
+            self.log['n_tokens']['total'][token_type] = self.log['n_tokens']['epi'][token_type] + self.log['n_tokens']['di'][token_type]
         self.log["n_requests"]["epi"] += 1
 
         if self.debug:
@@ -351,12 +293,10 @@ class LLMImputer():
                 ]
 
             di_response, di_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=148, temperature=0.0)
-            self.log["n_tokens"]["di"]["n_input_tokens"] += di_n_tokens["n_input_tokens"]
-            self.log["n_tokens"]["di"]["n_output_tokens"] += di_n_tokens["n_output_tokens"]
-            self.log["n_tokens"]["di"]["n_total_tokens"] += di_n_tokens["n_total_tokens"]
-            self.log["n_tokens"]["total"]["n_input_tokens"] = self.log["n_tokens"]["epi"]["n_input_tokens"] + self.log["n_tokens"]["di"]["n_input_tokens"]
-            self.log["n_tokens"]["total"]["n_output_tokens"] = self.log["n_tokens"]["epi"]["n_output_tokens"] + self.log["n_tokens"]["di"]["n_output_tokens"]
-            self.log["n_tokens"]["total"]["n_total_tokens"] = self.log["n_tokens"]["epi"]["n_total_tokens"] + self.log["n_tokens"]["di"]["n_total_tokens"]
+            for tt in ['input', 'output', 'total']:
+                token_type = f'n_{tt}_tokens'
+                self.log['n_tokens']['di'][token_type] += di_n_tokens[token_type]
+                self.log['n_tokens']['total'][token_type] = self.log['n_tokens']['epi'][token_type] + self.log['n_tokens']['di'][token_type]
             self.log["n_requests"]["di"] += 1
 
             di = __parser(di_response, dataset_variables_description, target_column)
@@ -376,12 +316,10 @@ class LLMImputer():
                         {"role": "user", "content": f"{user_prompt_suffix}"}
                     ]
                 di_response, di_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=148, temperature=0.0)
-                self.log["n_tokens"]["di"]["n_input_tokens"] += di_n_tokens["n_input_tokens"]
-                self.log["n_tokens"]["di"]["n_output_tokens"] += di_n_tokens["n_output_tokens"]
-                self.log["n_tokens"]["di"]["n_total_tokens"] += di_n_tokens["n_total_tokens"]
-                self.log["n_tokens"]["total"]["n_input_tokens"] = self.log["n_tokens"]["epi"]["n_input_tokens"] + self.log["n_tokens"]["di"]["n_input_tokens"]
-                self.log["n_tokens"]["total"]["n_output_tokens"] = self.log["n_tokens"]["epi"]["n_output_tokens"] + self.log["n_tokens"]["di"]["n_output_tokens"]
-                self.log["n_tokens"]["total"]["n_total_tokens"] = self.log["n_tokens"]["epi"]["n_total_tokens"] + self.log["n_tokens"]["di"]["n_total_tokens"]
+                for tt in ['input', 'output', 'total']:
+                    token_type = f'n_{tt}_tokens'
+                    self.log['n_tokens']['di'][token_type] += di_n_tokens[token_type]
+                    self.log['n_tokens']['total'][token_type] = self.log['n_tokens']['epi'][token_type] + self.log['n_tokens']['di'][token_type]
                 self.log["n_requests"]["di"] += 1
                 di = __parser(di_response, dataset_variables_description, target_column)
 
