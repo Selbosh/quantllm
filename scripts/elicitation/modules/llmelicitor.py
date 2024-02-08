@@ -80,8 +80,9 @@ class LLMElicitor:
         if target_distribution is None:
             # Unconstrained selection of parametric distribution (could be tricky to evaluate)
             target_distribution = 'any'
-        user_prompt_suffix = (self.prompts['prior_elicitation']['user_prompt_suffix']['suffix'] +
-          self.prompts['prior_elicitation']['user_prompt_suffix']['distribution'][target_distribution])
+        target_keylist = self.prompts['prior_elicitation']['user_prompt_suffix']['distribution'][target_distribution]
+        target_json_str = generate_target_json(target_keylist)
+        user_prompt_suffix = self.prompts['prior_elicitation']['user_prompt_suffix']['suffix'] + target_json_str
         user_prompt = user_prompt_prefix + user_prompt_infix + target_quantity + user_prompt_suffix
         
         if 'mistral' in self.model:
@@ -95,12 +96,12 @@ class LLMElicitor:
             ]
         
         # Call the LLM.
-        pi_response, pi_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=148, temperature=0.0)
+        pi_response, pi_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=256, temperature=0.0)
         self.__update_n_tokens(pi_n_tokens) # could maybe move this to inside __chat_api_call
         
         # Parse the result.
-        parsed_response = self.__parser(pi_response)
-        if parsed_response is None or not is_flat_dict(parsed_response):
+        parsed_response = self.__parser(pi_response, target_keylist)
+        if parsed_response is None:
             # If the __parser fails, ask the LLM to parse it for us by repeating the user_prompt_suffix. Then run it through the parser again.
             # This is done by passing the LLM's response to role `assistant`, i.e. chat history. Then asking just for formatting as a follow-up.
             # But we should try with regex first since it will be faster than sending another API call.
@@ -108,8 +109,7 @@ class LLMElicitor:
                 messages = [
                     {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}" },
                     {"role": "assistant", "content": pi_response },
-                    {"role": "user", "content": self.prompts['prior_elicitation']['user_prompt_suffix']['retry'] +
-                     self.prompts['prior_elicitation']['user_prompt_suffix']['distribution'][target_distribution]},
+                    {"role": "user", "content": self.prompts['prior_elicitation']['user_prompt_suffix']['retry'] + target_json_str},
                 ]
             else:
                 messages = [
@@ -120,9 +120,9 @@ class LLMElicitor:
                 ]
             pi_response, pi_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=148, temperature=0.0)
             self.__update_n_tokens(pi_n_tokens)
-            parsed_response = self.__parser(pi_response) # NB could still fail a second time
+            parsed_response = self.__parser(pi_response, target_keylist) # NB could still fail a second time
         
-        if self.debug:
+        if self.debug or parsed_response is None:
             print(f"- Elicited value: {parsed_response}")
             
         self.__save_log()
@@ -135,10 +135,10 @@ class LLMElicitor:
             self.log['n_tokens']['total'][token_type] = self.log['n_tokens']['epi'][token_type] + self.log['n_tokens']['pi'][token_type]
         self.log['n_requests']['pi'] += 1
         
-    def __parser(self, pi_response: str) -> dict | None:
+    def __parser(self, pi_response: str, target_keys: list[str]) -> dict | None:
         """
         Attempts to parse a JSON object from LLM text output.
-        If no (valid) object is found, returns None.
+        If no (valid) object is found, or values are missing, returns None.
         """
         regex_json = re.compile(r'\{[^{}]*\}')
         re_match = re.search(regex_json, pi_response)
@@ -146,7 +146,9 @@ class LLMElicitor:
         if re_match:
             json_text = re_match.group()
             try:
-                data = json.loads(json_text)
+                dictionary = json.loads(json_text)
+                if is_flat_dict(dictionary) and validate_keys(dictionary, target_keys):
+                    data = {key: dictionary[key] for key in target_keys} # drop extra items
             except json.JSONDecodeError as e:
                 print(f"Error parsing LLM JSON output: {e}\n\n{json_text}")
         else:
@@ -209,8 +211,15 @@ class LLMElicitor:
 
         return (response, n_tokens)
 
+def validate_keys(dictionary: dict, expected_keys: list[str] | dict):
+    return all(key in dictionary for key in expected_keys)
+
 def is_flat_dict(dictionary: dict) -> bool:
     if not isinstance(dictionary, dict):
         return False
     is_iterable = [isinstance(val, Iterable) for val in dictionary.values()]
     return not any(is_iterable)
+
+def generate_target_json(keylist: list[str]) -> str:
+    dictionary = {key: 'value' + str(idx) for idx, key in enumerate(keylist)}
+    return json.dumps(dictionary)

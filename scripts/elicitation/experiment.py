@@ -5,9 +5,8 @@ from pathlib import Path
 import datetime as dt
 import argparse
 import json
-from tqdm import tqdm
 import os
-import time
+
 
 
 def config_args():
@@ -62,9 +61,11 @@ def elicit_weather(args: argparse.Namespace,
                             'model': args.llm_model, 'role': args.llm_role, 'shelf': args.shelf, 'roulette': args.roulette,
                             'timestamp': timestamp})
     # Saving results.
-    results_df = pd.json_normalize(results) # expands out the params dictionary to params.alpha, params.beta, ...
-    results_df.to_csv(elicited_filepath, index=False, mode='a', header=not os.path.exists(elicited_filepath))
-    return results_df
+    json_str = json.dumps(results)
+    with open(elicited_filepath, 'a') as file:
+        file.write(json_str + '\n')
+    #results_df.to_csv(elicited_filepath, index=False, mode='a', header=not os.path.exists(elicited_filepath))
+    return results
 
 def elicit_psychology(args: argparse.Namespace,
                       timestamp: str,
@@ -94,9 +95,12 @@ def elicit_psychology(args: argparse.Namespace,
             results.append({'field': subfield, 'target': target, 'dist': dist, 'params': params,
                             'model': args.llm_model, 'role': args.llm_role, 'shelf': args.shelf, 'roulette': args.roulette,
                             'timestamp': timestamp})
-    results_df = pd.json_normalize(results)
-    results_df.to_csv(elicited_filepath, index=False, mode='a', header=not os.path.exists(elicited_filepath))
-    return results_df
+    # Saving results.
+    json_str = json.dumps(results)
+    with open(elicited_filepath, 'a') as file:
+        file.write(json_str + '\n')
+    # results_df.to_csv(elicited_filepath, index=False, mode='a', header=not os.path.exists(elicited_filepath))
+    return results
 
 def elicit_behavioural_sci(args: argparse.Namespace,
                            timestamp: str,
@@ -113,16 +117,15 @@ def main():
     output_dirpath.mkdir(parents=True, exist_ok=True)
     
     if args.experiment == 'weather':
-        weather_output_filepath = output_dirpath / "weather.csv"
+        weather_output_filepath = output_dirpath / "weather.ndjson"
         elicit_weather(args, timestamp, weather_output_filepath)
     
     if args.experiment == 'psychology':
-        psych_output_filepath = output_dirpath / "psychology.csv"
+        psych_output_filepath = output_dirpath / "psychology.ndjson"
         elicit_psychology(args, timestamp, psych_output_filepath)
         
     if args.experiment == 'behavioural':
         raise NotImplementedError()
-        #elicit_behavioural_sci(args, timestamp)
     
     if args.experiment == 'crowdfunding':
         raise NotImplementedError()
