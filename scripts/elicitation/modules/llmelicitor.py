@@ -123,6 +123,7 @@ class LLMElicitor:
             parsed_response = self.__parser(pi_response, target_keylist) # NB could still fail a second time
         
         if self.debug or parsed_response is None:
+            print(f'- LLM response: {pi_response}')
             print(f"- Elicited value: {parsed_response}")
             
         self.__save_log()
@@ -148,7 +149,11 @@ class LLMElicitor:
             try:
                 dictionary = json.loads(json_text)
                 if is_flat_dict(dictionary) and validate_keys(dictionary, target_keys):
-                    data = {key: dictionary[key] for key in target_keys} # drop extra items
+                    data = {key: float(dictionary[key]) for key in target_keys} # drop extra items
+                elif not is_flat_dict(dictionary):
+                    print(f'Dictionary is not flat: {dictionary}')
+                else:
+                    print(f'Failed to match keys of {dictionary} to targets: {target_keys}')
             except json.JSONDecodeError as e:
                 print(f"Error parsing LLM JSON output: {e}\n\n{json_text}")
         else:
@@ -217,9 +222,9 @@ def validate_keys(dictionary: dict, expected_keys: list[str] | dict):
 def is_flat_dict(dictionary: dict) -> bool:
     if not isinstance(dictionary, dict):
         return False
-    is_iterable = [isinstance(val, Iterable) for val in dictionary.values()]
+    is_iterable = [isinstance(val, Iterable) and not isinstance(val, str) for val in dictionary.values()]
     return not any(is_iterable)
 
 def generate_target_json(keylist: list[str]) -> str:
-    dictionary = {key: 'value' + str(idx) for idx, key in enumerate(keylist)}
+    dictionary = {key: 'numeric_value' + str(idx) for idx, key in enumerate(keylist)}
     return json.dumps(dictionary)

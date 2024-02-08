@@ -11,14 +11,14 @@
     "user_prompt_prefix": "THE PROBLEM: We are fitting a Bayesian model to a small dataset, and want to elicit an informative prior distribution.",
     "user_prompt_infix": "YOUR TASK: Please use your experience and knowledge to provide an informed prior distribution for the following quantity.\r\n\r\n",
     "user_prompt_suffix": {
-      "suffix": "\r\n\r\nIMPORTANT: Please do not provide any introduction, explanation or clarification. Only provide a non-nested JSON object. No spurious precision.\nRESPONSE FORMAT: ",
+      "suffix": "\r\n\r\nIMPORTANT: Please do not provide any introduction, explanation, comments or clarification. Only provide a non-nested, valid JSON object. No spurious precision.\nRESPONSE FORMAT: ",
       "retry": "Parse the result and provide a single unnested object in JSON format.\nRESPONSE FORMAT: ",
       "distribution": {
         "gamma": ["shape", "scale"],
         "beta": ["alpha", "beta"],
         "normal_inverse_gamma": ["mean", "precision", "shape", "scale"],
         "normal": ["mean", "std_dev"],
-        "inverse_gamma": ["alpha", "beta"],
+        "inverse_gamma": ["shape", "scale"],
         "student_t": ["loc", "scale", "df"],
         "any": ["distribution", "param1", "param2"]
       }

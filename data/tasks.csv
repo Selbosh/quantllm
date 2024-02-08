@@ -1,0 +1,294 @@
+Distribution,Category,Task
+beta,Medicine/Healthcare,Estimating the proportion of patients with stage IV lung cancer who will respond positively to a new immunotherapy drug.
+beta,Medicine/Healthcare,Predicting the likelihood of a patient with type 2 diabetes developing diabetic retinopathy within five years.
+beta,Medicine/Healthcare,Assessing the probability of successful organ transplantation in patients with end-stage renal disease.
+beta,Medicine/Healthcare,Determining the percentage of infants who will develop food allergies by the age of one year.
+beta,Medicine/Healthcare,Estimating the proportion of elderly patients with osteoarthritis who will experience significant pain relief from a new joint supplement.
+beta,Medicine/Healthcare,Predicting the probability of a patient with congestive heart failure being readmitted to the hospital within 30 days of discharge.
+beta,Medicine/Healthcare,Assessing the likelihood of a patient undergoing chemotherapy experiencing severe nausea and vomiting as a side effect.
+beta,Medicine/Healthcare,Estimating the proportion of individuals in a population who will test positive for a specific genetic mutation associated with breast cancer.
+beta,Medicine/Healthcare,Predicting the probability of a premature infant developing cerebral palsy by the age of five.
+beta,Medicine/Healthcare,Assessing the likelihood of a patient with rheumatoid arthritis achieving remission with a new biologic therapy.
+beta,Medicine/Healthcare,Estimating the proportion of patients with depression who will experience a relapse within six months of discontinuing antidepressant medication.
+beta,Medicine/Healthcare,Predicting the probability of a patient undergoing elective surgery experiencing a surgical site infection.
+beta,Medicine/Healthcare,Assessing the likelihood of a patient with Parkinson's disease experiencing dyskinesia as a side effect of levodopa therapy.
+beta,Medicine/Healthcare,Estimating the proportion of children with autism spectrum disorder who will show significant improvement in social skills with early intervention therapy.
+beta,Medicine/Healthcare,Predicting the probability of a patient with multiple sclerosis experiencing a relapse within one year.
+beta,Medicine/Healthcare,Assessing the likelihood of a patient with schizophrenia responding positively to a new antipsychotic medication.
+beta,Medicine/Healthcare,Estimating the proportion of individuals at high risk for cardiovascular disease who will adhere to a prescribed exercise regimen.
+beta,Medicine/Healthcare,Predicting the probability of a patient with Alzheimer's disease experiencing rapid cognitive decline.
+beta,Medicine/Healthcare,Assessing the likelihood of a patient undergoing bariatric surgery achieving long-term weight loss success.
+beta,Medicine/Healthcare,Estimating the proportion of pregnant women who will develop gestational diabetes during pregnancy.
+beta,Medicine/Healthcare,Predicting the probability of a patient with HIV developing drug resistance to antiretroviral therapy.
+beta,Medicine/Healthcare,Assessing the likelihood of a patient with chronic pain becoming addicted to opioid pain medication.
+beta,Medicine/Healthcare,Estimating the proportion of patients with irritable bowel syndrome who will experience symptom improvement with dietary changes.
+beta,Medicine/Healthcare,Predicting the probability of a patient with asthma experiencing a severe asthma exacerbation requiring hospitalization.
+beta,Medicine/Healthcare,Assessing the likelihood of a patient with bipolar disorder achieving mood stability with a combination of medication and therapy.
+beta,Economics/Finance,Estimating the proportion of households in a specific region that will default on their mortgage payments within the next year.
+beta,Economics/Finance,Predicting the likelihood of a recession occurring in the next 12 months based on economic indicators.
+beta,Economics/Finance,Assessing the probability of a stock market correction of at least 10% within the next six months.
+beta,Economics/Finance,Determining the percentage of small businesses that will declare bankruptcy within the next fiscal quarter.
+beta,Economics/Finance,Estimating the proportion of consumers who will default on their credit card debt within the next six months.
+beta,Economics/Finance,Predicting the probability of a company's stock price increasing by 20% or more within the next year.
+beta,Economics/Finance,Assessing the likelihood of a major currency exchange rate fluctuation exceeding 5% within the next month.
+beta,Economics/Finance,Estimating the proportion of retirees who will outlive their retirement savings.
+beta,Economics/Finance,Predicting the probability of a global economic downturn within the next two years.
+beta,Economics/Finance,Assessing the likelihood of a company defaulting on its corporate bonds within the next five years.
+beta,Economics/Finance,Estimating the proportion of college graduates who will be unemployed or underemployed six months after graduation.
+beta,Economics/Finance,Predicting the probability of a housing market bubble burst in a specific metropolitan area within the next three years.
+beta,Economics/Finance,Assessing the likelihood of a sovereign debt crisis occurring in a developing country within the next decade.
+beta,Economics/Finance,Estimating the proportion of households that will experience foreclosure within the next 12 months.
+beta,Economics/Finance,Predicting the probability of a significant increase in inflation within the next fiscal quarter.
+beta,Economics/Finance,Assessing the likelihood of a major bank failing within the next year.
+beta,Economics/Finance,Estimating the proportion of individuals who will experience job loss due to automation within the next decade.
+beta,Economics/Finance,Predicting the probability of a stock market crash similar to the Great Depression within the next 20 years.
+beta,Economics/Finance,Assessing the likelihood of a double-dip recession in a specific country within the next five years.
+beta,Economics/Finance,Estimating the proportion of millennials who will delay homeownership due to student loan debt.
+beta,Economics/Finance,Predicting the probability of a trade war escalating into a global economic conflict.
+beta,Economics/Finance,Assessing the likelihood of a significant decrease in consumer spending during a recession.
+beta,Engineering/Technology,Estimating the proportion of bridges in a specific state that will require major repairs within the next five years.
+beta,Engineering/Technology,Predicting the likelihood of a power grid failure in a major metropolitan area during extreme weather conditions.
+beta,Engineering/Technology,Assessing the probability of a cybersecurity breach compromising sensitive data for a Fortune 500 company.
+beta,Engineering/Technology,Determining the percentage of autonomous vehicles that will be involved in accidents within the next year.
+beta,Engineering/Technology,Estimating the proportion of 5G network installations that will experience signal interference in urban environments.
+beta,Engineering/Technology,Predicting the probability of a major data center outage affecting cloud services for a multinational corporation.
+beta,Engineering/Technology,Assessing the likelihood of a cyber attack targeting critical infrastructure such as water treatment plants.
+beta,Engineering/Technology,Estimating the proportion of software applications that will require patching for security vulnerabilities within the next month.
+beta,Engineering/Technology,Predicting the probability of a catastrophic failure in a nuclear power plant within the next decade.
+beta,Engineering/Technology,Assessing the likelihood of a commercial satellite malfunctioning and becoming inoperable within five years of launch.
+beta,Engineering/Technology,Estimating the proportion of electric vehicles that will experience battery degradation beyond acceptable limits within five years.
+beta,Engineering/Technology,Predicting the probability of a major earthquake causing structural damage to buildings in a seismic zone.
+beta,Engineering/Technology,Assessing the likelihood of a major cybersecurity incident disrupting global financial markets.
+beta,Engineering/Technology,Estimating the proportion of industrial robots that will require maintenance due to mechanical failures within a year.
+beta,Engineering/Technology,Predicting the probability of a significant increase in cyber attacks targeting Internet of Things (IoT) devices.
+beta,Engineering/Technology,Assessing the likelihood of a data breach compromising personal information for millions of users of a popular social media platform.
+beta,Engineering/Technology,Estimating the proportion of self-driving cars that will be involved in accidents resulting in fatalities within the next decade.
+beta,Engineering/Technology,Predicting the probability of a major telecommunications network outage affecting millions of users.
+beta,Engineering/Technology,Assessing the likelihood of a large-scale cyber attack disrupting air traffic control systems.
+beta,Engineering/Technology,Estimating the proportion of drones that will experience mid-air collisions within the next year.
+beta,Engineering/Technology,Predicting the probability of a significant increase in cyber attacks targeting autonomous vehicles.
+beta,Engineering/Technology,Assessing the likelihood of a major data breach affecting a leading cryptocurrency exchange.
+beta,Environmental Science,Estimating the proportion of coral reefs that will experience bleaching events due to ocean warming within the next decade.
+beta,Environmental Science,Predicting the likelihood of a species of sea turtle becoming extinct within the next 50 years due to habitat loss.
+beta,Environmental Science,Assessing the probability of a severe drought affecting a specific region within the next five years.
+beta,Environmental Science,Determining the percentage of glaciers that will disappear completely due to climate change within the next century.
+beta,Environmental Science,Estimating the proportion of urban areas that will experience increased flooding due to rising sea levels within the next 20 years.
+beta,Environmental Science,Predicting the probability of a major oil spill occurring in a sensitive marine ecosystem within the next decade.
+beta,Environmental Science,Assessing the likelihood of a significant increase in wildfires due to drought and higher temperatures.
+beta,Environmental Science,Estimating the proportion of agricultural land that will become unusable due to soil degradation within the next century.
+beta,Environmental Science,Predicting the probability of a mass extinction event affecting biodiversity within the next 100 years.
+beta,Environmental Science,Assessing the likelihood of a collapse in fish stocks due to overfishing and habitat destruction.
+beta,Environmental Science,Estimating the proportion of cities that will experience water shortages due to groundwater depletion within the next 30 years.
+beta,Environmental Science,Predicting the probability of a catastrophic release of methane from permafrost melting in the Arctic.
+beta,Environmental Science,Assessing the likelihood of a significant increase in the frequency and intensity of hurricanes due to climate change.
+beta,Environmental Science,Estimating the proportion of species that will undergo range shifts in response to changing climate conditions.
+beta,Environmental Science,Predicting the probability of a coral reef ecosystem reaching a tipping point and undergoing irreversible decline.
+beta,Environmental Science,Assessing the likelihood of a major biodiversity hotspot losing more than 50% of its species within the next century.
+beta,Environmental Science,Estimating the proportion of coastal wetlands that will be lost due to sea level rise within the next 50 years.
+beta,Environmental Science,Predicting the probability of a collapse in Antarctic ice shelves leading to rapid sea level rise.
+beta,Environmental Science,Assessing the likelihood of a significant increase in ocean acidification impacting marine ecosystems.
+beta,Environmental Science,Estimating the proportion of cities that will experience extreme heat events exceeding survivable thresholds within the next century.
+beta,Environmental Science,Predicting the probability of a major disruption in global food supplies due to climate-related crop failures.
+beta,Education,Estimating the proportion of high school students who will meet college readiness benchmarks in math and reading.
+beta,Education,Predicting the likelihood of a student dropping out of high school based on attendance and academic performance.
+beta,Education,Assessing the probability of a school district meeting Adequate Yearly Progress (AYP) targets under No Child Left Behind legislation.
+beta,Education,Determining the percentage of college freshmen who will change their major within the first year of enrollment.
+beta,Education,Estimating the proportion of students who will achieve proficiency in a foreign language by the end of high school.
+beta,Education,Predicting the probability of a low-income student enrolling in and completing a four-year college degree program.
+beta,Education,Assessing the likelihood of a school implementing a successful intervention program to reduce bullying incidents.
+beta,Education,Estimating the proportion of students who will score in the top 10% nationally on standardized tests.
+beta,Education,Predicting the probability of a student being identified as gifted and talented based on IQ and achievement test scores.
+beta,Education,Assessing the likelihood of a school district closing achievement gaps between different demographic groups.
+beta,Education,Estimating the proportion of students who will graduate from college debt-free.
+beta,Education,Predicting the probability of a student receiving a scholarship based on academic and extracurricular achievements.
+beta,Education,Assessing the likelihood of a dropout prevention program reducing dropout rates by 50% within three years.
+beta,Education,Estimating the proportion of students who will be accepted into a selective enrollment magnet school.
+beta,Education,Predicting the probability of a student with disabilities achieving proficiency on state assessments with accommodations.
+beta,Education,Assessing the likelihood of a school implementing a successful restorative justice program to reduce disciplinary referrals.
+beta,Education,Estimating the proportion of students who will participate in Advanced Placement (AP) courses and exams.
+beta,Education,Predicting the probability of a high school graduating class achieving a 100% graduation rate.
+beta,Education,Assessing the likelihood of a school district implementing a successful personalized learning initiative.
+beta,Education,Estimating the proportion of students who will enroll in college within one year of high school graduation.
+beta,Education,Predicting the probability of a student receiving a college athletic scholarship.
+beta,Education,Assessing the likelihood of a school district improving its state ranking on student achievement metrics within five years.
+beta,Marketing/Advertising,Estimating the proportion of consumers who will purchase a new smartphone within the next six months.
+beta,Marketing/Advertising,Predicting the likelihood of a social media influencer's sponsored post receiving over 100000 engagements.
+beta,Marketing/Advertising,Assessing the probability of a viral marketing campaign increasing brand awareness by 50% within a month.
+beta,Marketing/Advertising,Determining the percentage of customers who will switch to a competitor's product after a price increase.
+beta,Marketing/Advertising,Estimating the proportion of email subscribers who will click on a promotional offer in a marketing newsletter.
+beta,Marketing/Advertising,Predicting the probability of a new product launch generating $1 million in sales within the first month.
+beta,Marketing/Advertising,Assessing the likelihood of a celebrity endorsement boosting sales for a luxury fashion brand.
+beta,Marketing/Advertising,Estimating the proportion of website visitors who will sign up for a free trial of a subscription service.
+beta,Marketing/Advertising,Predicting the probability of a Super Bowl ad resulting in a 20% increase in brand recognition.
+beta,Marketing/Advertising,Assessing the likelihood of a product placement in a blockbuster movie leading to a spike in sales.
+beta,Marketing/Advertising,Estimating the proportion of social media followers who will convert into paying customers.
+beta,Marketing/Advertising,Predicting the probability of a sponsored content partnership driving a 30% increase in website traffic.
+beta,Marketing/Advertising,Assessing the likelihood of a celebrity scandal negatively impacting brand perception.
+beta,Marketing/Advertising,Estimating the proportion of consumers who will purchase a product based on influencer recommendations.
+beta,Marketing/Advertising,Predicting the probability of a customer responding to a personalized marketing email with a purchase.
+beta,Marketing/Advertising,Assessing the likelihood of a social media contest increasing user engagement by 50%.
+beta,Marketing/Advertising,Estimating the proportion of customers who will use a discount code received via SMS marketing.
+beta,Marketing/Advertising,Predicting the probability of a guerrilla marketing stunt going viral on social media.
+beta,Marketing/Advertising,Assessing the likelihood of a product recall damaging brand reputation.
+beta,Marketing/Advertising,Estimating the proportion of consumers who will download a branded mobile app.
+beta,Marketing/Advertising,Predicting the probability of a sponsored event attracting 1000 attendees.
+beta,Marketing/Advertising,Assessing the likelihood of a product placement in a popular TV show leading to a sales boost.
+normal,Medicine/Healthcare,Estimating the mean systolic blood pressure of patients with hypertension.
+normal,Medicine/Healthcare,Predicting the average length of hospital stay for patients undergoing knee replacement surgery.
+normal,Medicine/Healthcare,Assessing the average number of seizures per month in patients with epilepsy.
+normal,Medicine/Healthcare,Determining the average dosage of a particular medication required to achieve therapeutic effects.
+normal,Medicine/Healthcare,Estimating the mean level of cognitive impairment in patients with Alzheimer's disease.
+normal,Medicine/Healthcare,Predicting the average time to recurrence for patients with stage III melanoma.
+normal,Medicine/Healthcare,Assessing the average pain intensity experienced by patients with chronic lower back pain.
+normal,Medicine/Healthcare,Determining the average rate of decline in lung function in patients with cystic fibrosis.
+normal,Medicine/Healthcare,Estimating the mean tumor size in patients with pancreatic cancer.
+normal,Medicine/Healthcare,Predicting the average time to relapse for patients with major depressive disorder.
+normal,Medicine/Healthcare,Assessing the average number of exacerbations per year in patients with chronic obstructive pulmonary disease (COPD).
+normal,Medicine/Healthcare,Determining the mean serum cholesterol level in patients with familial hypercholesterolemia.
+normal,Medicine/Healthcare,Estimating the average age of onset for patients with multiple sclerosis.
+normal,Medicine/Healthcare,Predicting the mean duration of remission in patients with acute lymphoblastic leukemia (ALL).
+normal,Medicine/Healthcare,Assessing the average severity of symptoms in patients with generalized anxiety disorder (GAD).
+normal,Medicine/Healthcare,Determining the mean rate of progression in patients with amyotrophic lateral sclerosis (ALS).
+normal,Medicine/Healthcare,Estimating the average response time to treatment in patients with acute myocardial infarction.
+normal,Medicine/Healthcare,Predicting the mean number of hospital readmissions within 30 days for patients with heart failure.
+normal,Medicine/Healthcare,Assessing the average level of disability in patients with rheumatoid arthritis.
+normal,Medicine/Healthcare,Determining the mean duration of response to immunotherapy in patients with metastatic melanoma.
+normal,Medicine/Healthcare,Estimating the average number of hospital-acquired infections per year in a medical intensive care unit.
+normal,Medicine/Healthcare,Predicting the mean time to recurrence for patients with stage II breast cancer.
+normal,Medicine/Healthcare,Assessing the average level of pain relief achieved with a new analgesic medication.
+normal,Medicine/Healthcare,Determining the mean change in body weight in patients undergoing gastric bypass surgery.
+normal,Economics/Finance,Estimating the average annual GDP growth rate for a developing country.
+normal,Economics/Finance,Predicting the mean inflation rate for the next fiscal year.
+normal,Economics/Finance,Assessing the average return on investment for a diversified portfolio of stocks and bonds.
+normal,Economics/Finance,Determining the mean unemployment rate for the next quarter.
+normal,Economics/Finance,Estimating the average monthly household income in a specific urban area.
+normal,Economics/Finance,Predicting the mean interest rate for a 30-year fixed-rate mortgage.
+normal,Economics/Finance,Assessing the average annual rate of return for a real estate investment trust (REIT).
+normal,Economics/Finance,Determining the mean stock price volatility for a particular technology sector index.
+normal,Economics/Finance,Estimating the average annual salary for software engineers in a major tech hub.
+normal,Economics/Finance,Predicting the mean exchange rate for the next six months.
+normal,Economics/Finance,Assessing the average monthly consumer spending on luxury goods.
+normal,Economics/Finance,Determining the mean credit score for mortgage applicants in a specific demographic group.
+normal,Economics/Finance,Estimating the average annual revenue growth rate for a startup company.
+normal,Economics/Finance,Predicting the mean rate of return for an investment in renewable energy projects.
+normal,Economics/Finance,Assessing the average household debt-to-income ratio in a suburban neighborhood.
+normal,Economics/Finance,Determining the mean annual profit margin for small businesses in the retail sector.
+normal,Economics/Finance,Estimating the average rate of return for a venture capital fund.
+normal,Economics/Finance,Predicting the mean price-to-earnings ratio for the S&P 500 index.
+normal,Economics/Finance,Assessing the average annual cost of healthcare per capita in a developed country.
+normal,Economics/Finance,Determining the mean annual growth rate for e-commerce sales.
+normal,Economics/Finance,Estimating the average monthly rent for one-bedroom apartments in a metropolitan area.
+normal,Economics/Finance,Predicting the mean annual dividend yield for a dividend-paying stock.
+normal,Economics/Finance,Assessing the average annual revenue per user for a subscription-based software service.
+normal,Economics/Finance,Determining the mean lifetime value of a customer for a subscription box service.
+normal,Economics/Finance,Estimating the average rate of return for investments in green bonds.
+normal,Economics/Finance,Predicting the mean price volatility for a specific cryptocurrency.
+normal,Economics/Finance,Assessing the average monthly student loan repayment amount for recent graduates.
+normal,Engineering/Technology,Estimating the average lifespan of lithium-ion batteries used in electric vehicles.
+normal,Engineering/Technology,Predicting the mean failure rate for hard disk drives in data centers.
+normal,Engineering/Technology,Assessing the average time to failure for light-emitting diodes (LEDs) used in street lighting.
+normal,Engineering/Technology,Determining the mean service life of solar panels in utility-scale solar farms.
+normal,Engineering/Technology,Estimating the average time between maintenance cycles for wind turbines.
+normal,Engineering/Technology,Predicting the mean failure rate for hydraulic systems in industrial machinery.
+normal,Engineering/Technology,Assessing the average time to obsolescence for consumer electronics products.
+normal,Engineering/Technology,Determining the mean service interval for air conditioning systems in commercial buildings.
+normal,Engineering/Technology,Estimating the average time to failure for integrated circuits (ICs) used in automotive applications.
+normal,Engineering/Technology,Predicting the mean rate of degradation for lithium-ion batteries used in grid energy storage systems.
+normal,Engineering/Technology,Assessing the average time between software updates for operating systems.
+normal,Engineering/Technology,Determining the mean service life of LED displays used in outdoor advertising.
+normal,Engineering/Technology,Estimating the average time to failure for backup generators in data centers.
+normal,Engineering/Technology,Predicting the mean failure rate for hydraulic pumps in manufacturing equipment.
+normal,Engineering/Technology,Assessing the average time between failures for pneumatic actuators in industrial robotics.
+normal,Engineering/Technology,Determining the mean service interval for elevators in high-rise buildings.
+normal,Engineering/Technology,Estimating the average time to failure for solid-state drives (SSDs) in enterprise storage systems.
+normal,Engineering/Technology,Predicting the mean rate of degradation for lithium-ion batteries used in residential solar storage.
+normal,Engineering/Technology,Assessing the average time between software crashes for web browsers.
+normal,Engineering/Technology,Determining the mean service life of LED streetlights in municipal lighting installations.
+normal,Engineering/Technology,Estimating the average time to failure for electric motors used in manufacturing processes.
+normal,Engineering/Technology,Predicting the mean failure rate for water pumps in municipal water supply systems.
+normal,Engineering/Technology,Assessing the average time between maintenance cycles for HVAC systems in office buildings.
+normal,Engineering/Technology,Determining the mean service interval for photovoltaic inverters in utility-scale solar installations.
+normal,Engineering/Technology,Estimating the average time to failure for power supply units (PSUs) in computer servers.
+normal,Engineering/Technology,Predicting the mean rate of degradation for lithium-ion batteries used in electric grid stabilization.
+normal,Engineering/Technology,Assessing the average time between software updates for mobile operating systems.
+normal,Environmental Science,Estimating the mean concentration of particulate matter (PM2.5) in urban air pollution.
+normal,Environmental Science,Predicting the average temperature increase due to climate change in a specific geographic region.
+normal,Environmental Science,Assessing the mean level of mercury contamination in freshwater fish populations.
+normal,Environmental Science,Determining the average pH level of ocean water in a coral reef ecosystem.
+normal,Environmental Science,Estimating the mean rate of deforestation in tropical rainforests.
+normal,Environmental Science,Predicting the average sea level rise due to melting polar ice caps.
+normal,Environmental Science,Assessing the mean concentration of lead in drinking water supplies.
+normal,Environmental Science,Determining the average extent of coral bleaching events in the Great Barrier Reef.
+normal,Environmental Science,Estimating the mean rate of glacier retreat in the Himalayas.
+normal,Environmental Science,Predicting the average increase in ocean acidity due to carbon dioxide absorption.
+normal,Environmental Science,Assessing the mean level of pesticide contamination in agricultural soils.
+normal,Environmental Science,Determining the average rate of species extinction in tropical rainforests.
+normal,Environmental Science,Estimating the mean concentration of microplastics in ocean surface waters.
+normal,Environmental Science,Predicting the average frequency of extreme weather events such as hurricanes and tornadoes.
+normal,Environmental Science,Assessing the mean level of heavy metal contamination in urban soils.
+normal,Environmental Science,Determining the average rate of ocean acidification in coral reef ecosystems.
+normal,Environmental Science,Estimating the mean extent of Arctic sea ice melt during summer months.
+normal,Environmental Science,Predicting the average increase in global temperatures over the next century.
+normal,Environmental Science,Assessing the mean concentration of nitrogen compounds in freshwater ecosystems.
+normal,Environmental Science,Determining the average rate of forest regeneration after wildfire events.
+normal,Environmental Science,Estimating the mean level of air pollution exposure in urban populations.
+normal,Environmental Science,Predicting the average duration of drought conditions in semi-arid regions.
+normal,Environmental Science,Assessing the mean rate of plastic pollution accumulation in ocean gyres.
+normal,Environmental Science,Determining the average extent of land degradation due to desertification.
+normal,Environmental Science,Estimating the mean rate of species migration in response to climate change.
+normal,Environmental Science,Predicting the average frequency of algal blooms in eutrophic lakes.
+normal,Environmental Science,Assessing the mean level of heavy metal contamination in urban air.
+normal,Environmental Science,Determining the average rate of soil erosion in agricultural landscapes.
+normal,Environmental Science,Estimating the mean concentration of pharmaceuticals in surface water.
+normal,Education,Estimating the mean SAT score for high school seniors in a specific school district.
+normal,Education,Predicting the average reading level of third-grade students in a particular elementary school.
+normal,Education,Assessing the mean graduation rate for students with disabilities in a given state.
+normal,Education,Determining the average attendance rate for high school students in urban schools.
+normal,Education,Estimating the mean standardized test scores for English language learners (ELLs) in a district.
+normal,Education,Predicting the average number of disciplinary referrals per student in a middle school.
+normal,Education,Assessing the mean level of parental involvement in a low-income elementary school.
+normal,Education,Determining the average teacher-student ratio in high-poverty school districts.
+normal,Education,Estimating the mean proficiency level in mathematics for eighth-grade students.
+normal,Education,Predicting the average dropout rate for male students in urban high schools.
+normal,Education,Assessing the mean class size for kindergarten classrooms in suburban schools.
+normal,Education,Determining the average graduation rate for English learners (ELs) in a specific district.
+normal,Education,Estimating the mean level of digital literacy among fourth-grade students.
+normal,Education,Predicting the average number of hours of homework per week for high school juniors.
+normal,Education,Assessing the mean level of engagement in science classes for sixth-grade students.
+normal,Education,Determining the average graduation rate for students in alternative education programs.
+normal,Education,Estimating the mean score on state assessments for economically disadvantaged students.
+normal,Education,Predicting the average number of days absent per year for students in rural schools.
+normal,Education,Assessing the mean level of school safety perceptions among high school students.
+normal,Education,Determining the average number of advanced placement (AP) courses taken by seniors.
+normal,Education,Estimating the mean level of college readiness for first-generation college students.
+normal,Education,Predicting the average number of extracurricular activities per student in suburban high schools.
+normal,Education,Assessing the mean level of technology integration in elementary school classrooms.
+normal,Education,Determining the average graduation rate for students enrolled in career and technical education (CTE) programs.
+normal,Education,Estimating the mean score on a state-mandated physical fitness test for fifth-grade students.
+normal,Marketing/Advertising,Estimating the average click-through rate (CTR) for digital display ads.
+normal,Marketing/Advertising,Predicting the mean conversion rate for landing pages in an e-commerce website.
+normal,Marketing/Advertising,Assessing the average bounce rate for email marketing campaigns.
+normal,Marketing/Advertising,Determining the mean cost per acquisition (CPA) for online advertising campaigns.
+normal,Marketing/Advertising,Estimating the average open rate for promotional emails sent to a mailing list.
+normal,Marketing/Advertising,Predicting the mean return on investment (ROI) for social media advertising.
+normal,Marketing/Advertising,Assessing the average engagement rate for influencer marketing campaigns.
+normal,Marketing/Advertising,Determining the mean customer acquisition cost (CAC) for a direct mail campaign.
+normal,Marketing/Advertising,Estimating the average unsubscribe rate for email newsletters.
+normal,Marketing/Advertising,Predicting the mean customer lifetime value (CLV) for subscribers to a subscription service.
+normal,Marketing/Advertising,Assessing the average cost per click (CPC) for paid search advertising.
+normal,Marketing/Advertising,Determining the mean time spent on site for visitors from referral traffic.
+normal,Marketing/Advertising,Estimating the average conversion rate for product pages on an e-commerce website.
+normal,Marketing/Advertising,Predicting the mean cost per impression (CPM) for display advertising.
+normal,Marketing/Advertising,Assessing the average engagement rate for branded content on social media.
+normal,Marketing/Advertising,Determining the mean return on ad spend (ROAS) for video advertising campaigns.
+normal,Marketing/Advertising,Estimating the average response rate for direct mail marketing campaigns.
+normal,Marketing/Advertising,Predicting the mean cost per lead (CPL) for sponsored content campaigns.
+normal,Marketing/Advertising,Assessing the average interaction rate for interactive advertising units.
+normal,Marketing/Advertising,Determining the mean acquisition rate for customers from organic search traffic.
+normal,Marketing/Advertising,Estimating the average completion rate for video ads on streaming platforms.
+normal,Marketing/Advertising,Predicting the mean cost per view (CPV) for video advertising campaigns.
+normal,Marketing/Advertising,Assessing the average engagement rate for social media stories.
+normal,Marketing/Advertising,Determining the mean acquisition cost for customers from affiliate marketing channels.
+normal,Marketing/Advertising,Estimating the average scroll depth for content on a website.
+normal,Marketing/Advertising,Predicting the mean cost per engagement (CPE) for social media advertising.
+normal,Marketing/Advertising,Assessing the average response rate for mobile app push notifications.
