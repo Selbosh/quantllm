@@ -149,7 +149,7 @@ def main():
     # var 1/lambda^2
     #####################################################################
     true_rate = 1/5 # so mean is 5, var is 25
-    observed_data = np.random.exponential(scale=1/true_rate, size=1000)
+    observed_data = stats.expon(scale=1/true_rate).rvs(1000)
     priors = {
         'good': { 'params': (np.sqrt(5), np.sqrt(5)) },
         'vague': { 'params': (1, 20) },
@@ -164,22 +164,21 @@ def main():
     for n in sample_sizes:
         for key, val in priors.items():
             priors[key]['model'].fit(observed_data[:n])
-            priors[key]['pred_mean'] += [1/priors[key]['model'].posterior_pred.mean()] # why 1/.?
-            print('Please check: Inverting posterior predictive of gamma-exponential.')
+            priors[key]['pred_mean'] += [priors[key]['model'].posterior_pred.mean()]
             #t_terms = priors[key]['model'].posterior_pred.kwds
-            priors[key]['pred_std'] += [1/priors[key]['model'].posterior_pred.std()]
-    priors['empirical'] = {'pred_mean': [np.mean(observed_data[:n]) for n in sample_sizes],
-                           'pred_std': [np.std(observed_data[:n]) for n in sample_sizes]}
-    print(priors)
+            priors[key]['pred_std'] += [priors[key]['model'].posterior_pred.std()]
+    priors['empirical'] = {'pred_mean': [1/np.mean(observed_data[:n]) for n in sample_sizes],
+                           'pred_std': [1/np.std(observed_data[:n]) for n in sample_sizes]}
     fig, axs = plt.subplots(1, 2, figsize=(10, 4))
     for key, val in priors.items():
         axs[0].plot(sample_sizes, priors[key]['pred_mean'], label=key, marker='o')
         axs[1].plot(sample_sizes, priors[key]['pred_std'], label=key, marker='o')
-    axs[0].axhline(y = 1/true_rate, color='lightblue', linestyle='--', label='True')
-    axs[1].axhline(y = 1/true_rate, color='lightblue', linestyle='--', label='True')
+    axs[0].axhline(y = true_rate, color='lightblue', linestyle='--', label='True')
+    axs[1].axhline(y = true_rate, color='lightblue', linestyle='--', label='True')
     for ax in axs:
         ax.set_xlabel('sample size')
         ax.set_xscale('log')
+        ax.set_yscale('log')
         #ax.legend()
     axs[0].set_ylabel('mean')
     axs[0].set_title('Gamma prior model')
