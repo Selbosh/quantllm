@@ -9,6 +9,7 @@ class NormalInverseGammaPrior:
         self.prior = {'mu': stats.norm(mean, np.sqrt(variance)),
                       'sigma2': stats.invgamma(shape / 2, shape * variance / 2)}
         self.likelihood = stats.norm
+        self.prior_pred = stats.t(2*shape, loc=mean, scale=scale*np.sqrt(variance)/(shape-1))
         
     def fit(self, x):
         """Update the conjugate posterior."""
@@ -43,6 +44,7 @@ class GammaExponentialPrior:
         self.prior_scale = scale
         self.prior = stats.gamma(shape, scale=scale)
         self.likelihood = stats.expon
+        self.prior_pred = stats.lomax(c=1/scale, scale=shape)
     
     def fit(self, x):
         """Update the conjugate posterior."""
