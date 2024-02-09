@@ -102,6 +102,20 @@ def elicit_psychology(args: argparse.Namespace,
     # results_df.to_csv(elicited_filepath, index=False, mode='a', header=not os.path.exists(elicited_filepath))
     return results
 
+# def expert_for_task(args: argparse.Namespace,
+#                     timestamp: str,
+#                     tasks_filepath: Path,
+#                     elicited_filepath):
+#     prompts_filepath = Path(__file__).parent / 'prompts.json'
+#     prompts = json.loads(prompts_filepath.read_text())
+#     log_filepath = elicited_filepath.parent / f'log_{timestamp}.json'
+#     tasks = pd.read_csv(tasks_filepath)
+#     results = []
+#     for i, tsk in tasks.iterrows():
+#         ee_prompts = prompts['expert_elicitation']
+#         expert_prompt = ee_prompts['system_prompt']
+# # ADD EXPERT ELICITATION METHOD TO LLMELICITOR MODELLED AFTER IMPUTER
+
 def elicit_any_task(args: argparse.Namespace,
                     timestamp: str,
                     tasks_filepath: Path,
@@ -112,9 +126,9 @@ def elicit_any_task(args: argparse.Namespace,
     tasks = pd.read_csv(tasks_filepath)
     results = []
     for i, tsk in tasks.iterrows():
-        expert_prompt = tsk.expert
-        target_qty = tsk.task
-        target_dist = tsk.dist
+        expert_prompt = #tsk.expert
+        target_qty = tsk.Task
+        target_dist = tsk.Distribution
         elicitor = LLMElicitor(prompts=prompts, model=args.llm_model, role='expert',
                                expert_prompt=expert_prompt, shelf=args.shelf, roulette=args.roulette,
                                log_filepath=log_filepath)

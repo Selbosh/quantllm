@@ -2,6 +2,7 @@ from .conjugate import NormalInverseGammaPrior, GammaExponentialPrior
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import properscoring as ps
 
 class PriorEvaluator:
     def __init__(self, family: str, train_data, test_data, **prior_params):
@@ -21,6 +22,12 @@ class PriorEvaluator:
         self.prior_params = prior_params
         self.train_data = train_data
         self.test_data = test_data
+        
+    def crps(self, relative=False):
+        baseline_score = ps.crps_ensemble(self.test_data, np.zeros_like(self.test_data)).mean()
+        forecast_score = ps.crps_quadrature(self.test_data, self.prior.posterior_pred).mean()
+        skill = (baseline_score - forecast_score) / baseline_score
+        return skill if relative else forecast_score
         
     def compute_loss(self, n: int):
         max_n = len(self.train_data)

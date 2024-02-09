@@ -10,38 +10,30 @@ class NormalInverseGammaPrior:
                       'sigma2': stats.invgamma(shape / 2, shape * variance / 2)}
         self.likelihood = stats.norm
         
-    def fit(self, data):
+    def fit(self, x):
         """Update the conjugate posterior."""
-        n = len(data)
-        x_bar = np.mean(data)
-        x_sum_sq = np.sum((data - x_bar) ** 2)
+        n = len(x)
+        x_bar = np.mean(x)
         mean_0, prec_0 = self.prior_mean, 1 / self.prior_variance
         shape_0, scale_0 = self.prior_shape, self.prior_scale
         # Posterior distribution
+        # https://www.cs.ubc.ca/~murphyk/Papers/bayesGauss.pdf
         prec_n = prec_0 + n
-        mean_n = (prec_0 * mean_0 + n * x_bar) / prec_n
-        shape_n = shape_0 + n / 2
-        scale_n = scale_0 + 0.5 * x_sum_sq + (prec_0 * n * (x_bar - mean_0) ** 2) / (2 * prec_n)
         var_n = 1 / prec_n
+        mean_n = var_n * (prec_0 * mean_0 + n * x_bar)
+        shape_n = shape_0 + n / 2
+        x_sum_sq = np.sum((x - x_bar)**2)
+        scale_n = scale_0 + 0.5 * x_sum_sq + (n * prec_0) / (prec_0 + n) * (x_bar - mean_0) ** 2 / 2
+        #scale_n = scale_0 + 0.5 * (mean_0**2 * prec_0 + np.sum(x**2) - mean_n**2 * prec_n)
         self.posterior = {'mu': stats.norm(loc=mean_n, scale=np.sqrt(var_n)),
                           'sigma2': stats.invgamma(shape_n, scale=scale_n)}
         # Posterior predictive distribution
-        df_pp, loc_pp, scale_pp = shape_n, mean_n, np.sqrt(scale_n * (1 + 1/ shape_n))
-        self.posterior_pred = stats.t(df=df_pp, loc=loc_pp, scale=scale_pp)
+        df_pp, loc_pp, scale_pp = 2 * shape_n, mean_n, scale_n * (1 + var_n) / (shape_n)
+        self.posterior_pred = stats.t(df=df_pp, loc=loc_pp, scale=np.sqrt(scale_pp))
         
-    def log_pointwise_predictive_density(self, newdata, M=10000):
-        """
-        How well the model fits the data.
-        
-        http://www.stat.columbia.edu/~gelman/research/unpublished/waic_understand_final.pdf
-        """
-        mu_samples = self.posterior['mu'].rvs(M)
-        sigma2_samples = self.posterior['sigma2'].rvs(M)
-        # likelihood = lambda x: self.likelihood.pdf(x, loc=mu_samples, scale=np.sqrt(sigma2_samples))
-        # lppd = [np.log(np.mean(likelihood(y))) for y in newdata]
-        log_lik = lambda x: self.likelihood.logpdf(x, loc=mu_samples, scale=np.sqrt(sigma2_samples))
-        lppd = [log_mean(log_lik(y)) for y in newdata]
-        return np.sum(lppd)
+    def log_pointwise_predictive_density(self, newdata):
+        lppd = np.mean(self.posterior_pred.logpdf(newdata))
+        return lppd
     
     lppd = log_pointwise_predictive_density
 
@@ -52,23 +44,23 @@ class GammaExponentialPrior:
         self.prior = stats.gamma(shape, scale=scale)
         self.likelihood = stats.expon
     
-    def fit(self, data):
+    def fit(self, x):
         """Update the conjugate posterior."""
-        n = len(data)
+        n = len(x)
+        # Posterior distribution
         shape_n = self.prior_shape + n
-        scale_n = 1 / (1 / self.prior_scale + np.sum(data))
+        beta_n = 1 / self.prior_scale + np.sum(x)
+        scale_n = 1 / beta_n
         self.posterior = stats.gamma(shape_n, scale=scale_n)
+        # Posterior predictive distribution
+        # Lomax, aka Pareto II
+        shape_lomax = beta_n
+        scale_lomax = shape_n
+        self.posterior_pred = stats.lomax(c=shape_lomax, scale=scale_lomax)
         
-    def log_pointwise_predictive_density(self, newdata, M=1000):
-        """
-        How well the model fits the data.
-        
-        http://www.stat.columbia.edu/~gelman/research/unpublished/waic_understand_final.pdf
-        """
-        theta_samples = self.posterior.rvs(M)
-        log_lik = lambda x: self.likelihood.logpdf(x, scale=1/theta_samples)
-        lppd = [log_mean(log_lik(y)) for y in newdata]
-        return np.sum(lppd)
+    def log_pointwise_predictive_density(self, newdata):
+        lppd = np.mean(self.posterior_pred.logpdf(newdata))
+        return lppd     
     
     lppd = log_pointwise_predictive_density
 
@@ -102,52 +94,99 @@ def fit_empirical_distribution(observed_data, plot=True):
         plt.title(best_fit['distribution'].name)
         plt.show()
     return best_fit, best_kl_divergence
-        
+
+def main():
+    true_mu, true_sigma = 170.0, 5.0
+    observed_data = np.random.normal(true_mu, true_sigma, size=1000)
+    priors = {
+        'good': { 'params': (170, 5, 100, 1) },
+        'bad (high)': { 'params': (200, 5, 1, 2) },
+        'bad (low)': { 'params': (100, 5, 1, 2) },
+        'vague': { 'params': (150, 20, .5, 10) },
+        }
+    for key, val in priors.items():
+        priors[key]['model'] = NormalInverseGammaPrior(*val['params'])
+        priors[key]['pred_mean'] = []
+        priors[key]['pred_std'] = []
+    sample_sizes = [2, 3, 4, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000]
+    for n in sample_sizes:
+        for key, val in priors.items():
+            priors[key]['model'].fit(observed_data[:n])
+            priors[key]['pred_mean'] += [priors[key]['model'].posterior_pred.mean()]
+            #t_terms = priors[key]['model'].posterior_pred.kwds
+            priors[key]['pred_std'] += [priors[key]['model'].posterior_pred.std()]
+    priors['empirical'] = {'pred_mean': [np.mean(observed_data[:n]) for n in sample_sizes],
+                           'pred_std': [np.std(observed_data[:n]) for n in sample_sizes]}
+    fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+    for key, val in priors.items():
+        axs[0].plot(sample_sizes, priors[key]['pred_mean'], label=key, marker='o')
+        axs[1].plot(sample_sizes, priors[key]['pred_std'], label=key, marker='o')
+    axs[0].axhline(y = true_mu, color='lightblue', linestyle='--', label='True')
+    axs[1].axhline(y = true_sigma, color='lightblue', linestyle='--', label='True')
+    for ax in axs:
+        ax.set_xlabel('sample size')
+        ax.set_xscale('log')
+        #ax.legend()
+    axs[0].set_ylabel('mean')
+    axs[0].set_title('Normal inverse gamma model')
+    axs[1].set_ylabel('standard deviation')
+    #axs[1].set_yscale('log')
+    axs[0].legend()
+    plt.tight_layout()
+    plt.show()
+    
+    ####################################################################
+    # Gamma prior for exponential likelihood
+    # Prior:
+    # k: shape
+    # theta: scale
+    # mean k*theta
+    # var k*theta^2
+    #--------------
+    # Likelihood:
+    # lambda: rate (1/scale)
+    # mean 1/lambda
+    # var 1/lambda^2
+    #####################################################################
+    true_rate = 1/5 # so mean is 5, var is 25
+    observed_data = np.random.exponential(scale=1/true_rate, size=1000)
+    priors = {
+        'good': { 'params': (np.sqrt(5), np.sqrt(5)) },
+        'vague': { 'params': (1, 20) },
+        'bad': { 'params': (5, 1) },
+        'other': { 'params': (1, 1) },
+        'other2': { 'params': (0.5, 0.5) }
+    }
+    for key, val in priors.items():
+        priors[key]['model'] = GammaExponentialPrior(*val['params'])
+        priors[key]['pred_mean'] = []
+        priors[key]['pred_std'] = []
+    for n in sample_sizes:
+        for key, val in priors.items():
+            priors[key]['model'].fit(observed_data[:n])
+            priors[key]['pred_mean'] += [1/priors[key]['model'].posterior_pred.mean()] # why 1/.?
+            print('Please check: Inverting posterior predictive of gamma-exponential.')
+            #t_terms = priors[key]['model'].posterior_pred.kwds
+            priors[key]['pred_std'] += [1/priors[key]['model'].posterior_pred.std()]
+    priors['empirical'] = {'pred_mean': [np.mean(observed_data[:n]) for n in sample_sizes],
+                           'pred_std': [np.std(observed_data[:n]) for n in sample_sizes]}
+    print(priors)
+    fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+    for key, val in priors.items():
+        axs[0].plot(sample_sizes, priors[key]['pred_mean'], label=key, marker='o')
+        axs[1].plot(sample_sizes, priors[key]['pred_std'], label=key, marker='o')
+    axs[0].axhline(y = 1/true_rate, color='lightblue', linestyle='--', label='True')
+    axs[1].axhline(y = 1/true_rate, color='lightblue', linestyle='--', label='True')
+    for ax in axs:
+        ax.set_xlabel('sample size')
+        ax.set_xscale('log')
+        #ax.legend()
+    axs[0].set_ylabel('mean')
+    axs[0].set_title('Gamma prior model')
+    axs[1].set_ylabel('standard deviation')
+    axs[0].legend()
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
-    np.random.seed(42)
-    data = np.random.normal(5, 1, size=100)
-    test = np.random.normal(5, 1, size=50)
-    lppd = {'good': [], 'bad': []}
-    n_range = range(1, len(data) + 1)
-    for n in n_range:
-        subset_data = data[:n]
-        bad = NormalInverseGammaPrior(0, .5, 5, .5)
-        good = NormalInverseGammaPrior(7.5, 1, 2, 1)
-        bad.fit(subset_data)
-        good.fit(subset_data)
-        lppd['bad'] += [bad.lppd(test)]
-        lppd['good'] += [good.lppd(test)]
-    
-    plt.plot(n_range, lppd['bad'], marker='o', label='Bad prior', color='blue')
-    plt.plot(n_range, lppd['good'], marker='o', label='Good prior', color='green')
-    plt.xlabel('Number of data points')
-    plt.ylabel('Expected log predictive density (ELPD)')
-    plt.title('ELPD vs. number of data points')
-    plt.suptitle('Gaussian random variable')
-    plt.legend()
-    plt.show()
-    
-    data = np.random.exponential(2, size=100)
-    test = np.random.exponential(2, size=50)
-    lppd = {'good': [], 'bad': []}
-    n_range = range(1, len(data) + 1)
-    for n in n_range:
-        subset_data = data[:n]
-        bad = GammaExponentialPrior(20, .01)
-        good = GammaExponentialPrior(2, 4)
-        bad.fit(subset_data)
-        good.fit(subset_data)
-        lppd['bad'] += [bad.lppd(test)]
-        lppd['good'] += [good.lppd(test)]
-    
-    plt.plot(n_range, lppd['bad'], marker='o', label='Bad prior', color='blue')
-    plt.plot(n_range, lppd['good'], marker='o', label='Good prior', color='green')
-    plt.xlabel('Number of data points')
-    plt.ylabel('Expected log predictive density (ELPD)')
-    plt.title('ELPD vs. number of data points')
-    plt.suptitle('Exponential random variable')
-    plt.legend()
-    plt.show()
-    
-    
+    main()

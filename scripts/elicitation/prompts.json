@@ -1,4 +1,9 @@
 {
+  "expert_prompt_initialization": {
+    "system_prompt": "I am going to give you a description of a task. Please read it and then tell me which hypothetical persona would be the best domain expert on the content of the task if I had questions about specific variables, attributes or properties.\r\nI don't need a data scientist or machine learning expert, and I don't have questions about the analysis of the data but about specific attributes and values.\r\nPlease do not give me a list. Just give me a detailed description of a (single) person who really knows a lot about the field in which the task was generated.\r\nDo not mention the task or anything about it. Do not explain what you do. Just give the description and be concise. No Intro like 'An expert would be'.",
+    "user_prompt_prefix": "Here is the description of the task:\r\n\r\n",
+    "user_prompt_suffix": "\r\n\r\n\r\n\r\nRemember: Do not mention the task in your description. Don't explain what you do. Just give me a concise description of a hypthetical person, that would be an expert on this.\r\nFormulate this as an instruction like \"You are an ...\"."
+  },
   "elicitation_framework": {
     "direct": "You will determine the prior distribution parameters for a univariate quantity. Give the distribution directly. ",
     "shelf": "Use the SHELF elicitation framework to derive the prior distribution parameters for a univariate quantity. Do not ask for further input. ",

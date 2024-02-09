@@ -31,6 +31,7 @@ retry-requests = "^2.0.0"
 geopy = "^2.4.1"
 pyro-ppl = "^1.8.6"
 torch = "^2.1.2"
+properscoring = "^0.1"
 
 
 [tool.poetry.group.dev.dependencies]
