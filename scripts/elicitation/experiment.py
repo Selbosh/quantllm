@@ -11,7 +11,7 @@ import os
 
 def config_args():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--experiment', type=str, default='weather', choices=['weather', 'psychology', 'behavioural', 'crowdfunding', 'any'])
+    argparser.add_argument('--experiment', type=str, default='weather', choices=['weather', 'psychology', 'behavioural', 'crowdfunding', 'taskmaster'])
     argparser.add_argument('--llm_model', type=str, default='gpt-4')
     argparser.add_argument('--llm_role', type=str, default='expert', choices=['expert', 'nonexpert', 'conference'])
     argparser.add_argument('--shelf', action='store_true')
@@ -102,39 +102,33 @@ def elicit_psychology(args: argparse.Namespace,
     # results_df.to_csv(elicited_filepath, index=False, mode='a', header=not os.path.exists(elicited_filepath))
     return results
 
-# def expert_for_task(args: argparse.Namespace,
-#                     timestamp: str,
-#                     tasks_filepath: Path,
-#                     elicited_filepath):
-#     prompts_filepath = Path(__file__).parent / 'prompts.json'
-#     prompts = json.loads(prompts_filepath.read_text())
-#     log_filepath = elicited_filepath.parent / f'log_{timestamp}.json'
-#     tasks = pd.read_csv(tasks_filepath)
-#     results = []
-#     for i, tsk in tasks.iterrows():
-#         ee_prompts = prompts['expert_elicitation']
-#         expert_prompt = ee_prompts['system_prompt']
-# # ADD EXPERT ELICITATION METHOD TO LLMELICITOR MODELLED AFTER IMPUTER
-
 def elicit_any_task(args: argparse.Namespace,
                     timestamp: str,
                     tasks_filepath: Path,
                     elicited_filepath: Path):
     prompts_filepath = Path(__file__).parent / 'prompts.json'
     prompts = json.loads(prompts_filepath.read_text())
-    log_filepath = elicited_filepath.parent / f'log_{timestamp}.json'
     tasks = pd.read_csv(tasks_filepath)
     results = []
     for i, tsk in tasks.iterrows():
-        expert_prompt = #tsk.expert
-        target_qty = tsk.Task
+        if args.debug:
+            print(i)
+            print(tsk)
+        task_description = tsk.Task
         target_dist = tsk.Distribution
+        tsi = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # avoid overwriting logs
+        log_filepath = elicited_filepath.parent / f'log_{tsi}.json' 
         elicitor = LLMElicitor(prompts=prompts, model=args.llm_model, role='expert',
-                               expert_prompt=expert_prompt, shelf=args.shelf, roulette=args.roulette,
+                               expert_prompt='', shelf=args.shelf, roulette=args.roulette,
                                log_filepath=log_filepath)
-        dist, params = elicitor.elicit(target_qty, target_dist, expert_prompt)
-        results.append({'task_index': i, 'task': target_qty, 'dist': target_dist, 'params': params,
-                        'model': args.llm_model, 'expert_prompt': expert_prompt,
+        expert_prompt = elicitor.expert_prompt_initialization(task_description)
+        if args.debug:
+            print(f'Expert prompt:\n{expert_prompt}')
+        _, params = elicitor.elicit(task_description, target_dist, expert_prompt)
+        results.append({'task_index': i, #'task': task_description,
+                        'dist': target_dist, 'params': params,
+                        'model': args.llm_model, #'expert_prompt': expert_prompt,
+                        # timestamp in `results` refers to the overall job:
                         'shelf': args.shelf, 'roulette': args.roulette, 'timestamp': timestamp})
     # Saving results
     json_str = json.dumps(results)
@@ -170,7 +164,7 @@ def main():
     if args.experiment == 'crowdfunding':
         raise NotImplementedError()
     
-    if args.experiment == 'any':
+    if args.experiment == 'taskmaster':
         any_output_filepath = output_dirpath / 'anytask.ndjson'
         tasks_filepath = data_dirpath / 'tasks.csv'
         if not Path.exists(tasks_filepath):

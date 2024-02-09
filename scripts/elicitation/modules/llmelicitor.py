@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import re
 from collections.abc import Iterable
+import tiktoken
 
 class LLMElicitor:
     def __init__(self,
@@ -24,7 +25,7 @@ class LLMElicitor:
         self.roulette = roulette
         self.log_filepath = log_filepath
         self.debug = debug
-        
+        self.n_input_tokens_tiktoken = 0 if self.model.startswith("gpt") else None
         self.log = {
             "model": self.model,
             "role": self.role,
@@ -215,7 +216,107 @@ class LLMElicitor:
             print(f"- Number of tokens: {n_tokens}")
 
         return (response, n_tokens)
+    
+    def expert_prompt_initialization(self, task_description: str):
+        """
+        Expert prompt initialization (EPI) module
+        """
+        if self.debug:
+            print("Starting Expert Prompt Initialization (EPI) module...")
+        # First API Call to generate the Expert Prompt Initialization (epi)
+        system_prompt = self.prompts["expert_prompt_initialization"]["system_prompt"]
+        user_prompt_prefix = self.prompts["expert_prompt_initialization"]["user_prompt_prefix"]
+        user_prompt_suffix = self.prompts["expert_prompt_initialization"]["user_prompt_suffix"]
+        user_prompt = user_prompt_prefix + task_description + user_prompt_suffix
+        if 'mistral' in self.model:
+            messages = [
+                {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"},
+            ]
+        else:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+        epi_max_tokens = 2048
 
+        if self.model.startswith("gpt"):
+            n_input_tokens_tiktoken = self.__num_tokens_from_messages(system_prompt, user_prompt, self.model)
+            if self.debug:
+                print(f"- Tiktoken: {n_input_tokens_tiktoken} tokens")
+            self.n_input_tokens_tiktoken += n_input_tokens_tiktoken
+
+        epi_prompt, ept_n_tokens = self.__chat_api_call(self.model, messages, max_tokens=epi_max_tokens)
+        self.log["prompts"]["expert_prompt"] = self.expert_prompt = epi_prompt
+        self.log["n_tokens"]["epi"] = ept_n_tokens
+        self.log["n_tokens"]["total"]["n_input_tokens"] = self.log["n_tokens"]["epi"]["n_input_tokens"] + self.log["n_tokens"]["pi"]["n_input_tokens"]
+        self.log["n_tokens"]["total"]["n_output_tokens"] = self.log["n_tokens"]["epi"]["n_output_tokens"] + self.log["n_tokens"]["pi"]["n_output_tokens"]
+        self.log["n_tokens"]["total"]["n_total_tokens"] = self.log["n_tokens"]["epi"]["n_total_tokens"] + self.log["n_tokens"]["pi"]["n_total_tokens"]
+        self.log["n_requests"]["epi"] += 1
+
+        if self.debug:
+            print("Finished Expert Prompt Initialization (EPI) module.")
+            print(f"- EPI Prompt: {epi_prompt}")
+
+        if epi_prompt is None:
+            raise ValueError("The Expert Prompt Initialization (epi) module returned None.")
+
+        self.__save_log()
+
+        return epi_prompt
+    
+    def __num_tokens_from_messages(self, system_prompt, user_prompt, model="gpt-4"):
+        """
+        Return the number of tokens used by a list of messages.
+        Basically, this function is a copy of the sample code from OpenAI.
+
+        Args:
+            - `system_prompt`: The system prompt or context for the conversation.
+            - `user_prompt`: The user's input or question.
+            - `model`: The model to be used (e.g., 'gpt-4').
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except KeyError:
+            print("Warning: model not found. Using cl100k_base encoding.")
+            encoding = tiktoken.get_encoding("cl100k_base")
+        if model in {
+                "gpt-3.5-turbo-0613",
+                "gpt-3.5-turbo-16k-0613",
+                "gpt-4-0314",
+                "gpt-4-32k-0314",
+                "gpt-4-0613",
+                "gpt-4-32k-0613",
+            }:
+            tokens_per_message = 3
+            tokens_per_name = 1
+        elif model == "gpt-3.5-turbo-0301":
+            tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
+            tokens_per_name = -1  # if there's a name, the role is omitted
+        elif "gpt-3.5-turbo" in model:
+            print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
+            return self.__num_tokens_from_messages(system_prompt=system_prompt, user_prompt=user_prompt, model="gpt-3.5-turbo-0613")
+        elif "gpt-4" in model:
+            print("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
+            return self.__num_tokens_from_messages(system_prompt=system_prompt, user_prompt=user_prompt, model="gpt-4-0613")
+        else:
+            raise NotImplementedError(
+                f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens."""
+            )
+        num_tokens = 0
+        for message in messages:
+            num_tokens += tokens_per_message
+            for key, value in message.items():
+                num_tokens += len(encoding.encode(value))
+                if key == "name":
+                    num_tokens += tokens_per_name
+        num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+        return num_tokens
+            
 def validate_keys(dictionary: dict, expected_keys: list[str] | dict):
     return all(key in dictionary for key in expected_keys)
 
