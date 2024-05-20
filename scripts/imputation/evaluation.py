@@ -14,20 +14,30 @@ from sklearn.preprocessing import OneHotEncoder
 
 def config_args():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--method', type=str, default='meanmode', choices=['meanmode', 'knn', 'rf', 'llm'])
+    argparser.add_argument('--method', type=str, default='meanmode',
+                           choices=['meanmode', 'knn', 'rf', 'llm'])
     argparser.add_argument('--downstream', action='store_true')
-    argparser.add_argument('--downstreambaseline', type=str, default=None, choices=['train_complete', 'train_incomplete'])
+    argparser.add_argument('--downstreambaseline', type=str, default=None,
+                           choices=['train_complete', 'train_incomplete'])
     argparser.add_argument('--openml_id', type=int, default=None)
-    argparser.add_argument('--missingness', type=str, default=None, choices=['MCAR', 'MAR', 'MNAR'])
-    argparser.add_argument('--dataset', nargs='*', type=str, default=['incomplete', 'complete'])
+    argparser.add_argument('--missingness', type=str, default=None,
+                           choices=['MCAR', 'MAR', 'MNAR'])
+    argparser.add_argument('--dataset', nargs='*', type=str, 
+                           default=['incomplete', 'complete'])
     argparser.add_argument('--llm_model', type=str, default='gpt-4')
-    argparser.add_argument('--llm_role', type=str, default='expert', choices=['expert', 'nonexpert'])
+    argparser.add_argument('--llm_role', type=str, default='expert',
+                           choices=['expert', 'nonexpert'])
     argparser.add_argument('--debug', action='store_true')
     argparser.add_argument('--seed', type=int, default=42)
     return argparser.parse_args()
 
 
-def evaluation(args: argparse.Namespace, timestamp: str, dataset_type: str, openml_dirpath: Path, input_dirpath: Path, output_dirpath: Path):
+def evaluation(args: argparse.Namespace, 
+               timestamp: str,
+               dataset_type: str,
+               openml_dirpath: Path,
+               input_dirpath: Path,
+               output_dirpath: Path):
     imputation_results_filepath = output_dirpath / f'imputation_{dataset_type}_{timestamp}.csv'
     with open(imputation_results_filepath, 'w') as f:
         f.write('timestamp,method,openml_id,missingness,missing_column_name,missing_column_type,n_missing_values,rmse,macro_f1\n')
@@ -115,7 +125,15 @@ def evaluation(args: argparse.Namespace, timestamp: str, dataset_type: str, open
     return
 
 
-def imputation_evaluation(args: argparse.Namespace, timestamp: str, openml_id: int, missingness: str | None, X_groundtruth: pd.DataFrame, X_corrupted: pd.DataFrame, X_imputed: pd.DataFrame, X_categories: dict, results_filepath: Path | None):
+def imputation_evaluation(args: argparse.Namespace, 
+                          timestamp: str, 
+                          openml_id: int, 
+                          missingness: str | None, 
+                          X_groundtruth: pd.DataFrame, 
+                          X_corrupted: pd.DataFrame, 
+                          X_imputed: pd.DataFrame, 
+                          X_categories: dict, 
+                          results_filepath: Path | None):
     '''
     This function runs the imputation experiment for a specific dataset.
 
@@ -147,7 +165,17 @@ def imputation_evaluation(args: argparse.Namespace, timestamp: str, openml_id: i
     return
 
 
-def downstream_evaluation(args: argparse.Namespace, timestamp: str, openml_id: int, missingness: str, X_train_filepath: Path, X_test_filepath: Path, y_train_filepath: Path, y_test_filepath: Path, results_filepath: Path, X_incomplete_filepath: Path, X_categories_filepath: Path):
+def downstream_evaluation(args: argparse.Namespace,
+                          timestamp: str,
+                          openml_id: int,
+                          missingness: str,
+                          X_train_filepath: Path,
+                          X_test_filepath: Path,
+                          y_train_filepath: Path,
+                          y_test_filepath: Path,
+                          results_filepath: Path,
+                          X_incomplete_filepath: Path,
+                          X_categories_filepath: Path):
     if args.debug:
         print(f'Imputing OpenML Id: {openml_id}')
 
@@ -191,7 +219,12 @@ def downstream_evaluation(args: argparse.Namespace, timestamp: str, openml_id: i
         f.write(f'{timestamp},{args.method},{openml_id},{missingness},{acc},{macro_f1}\n')
 
 
-def downstream_baseline_evaluation(args: argparse.Namespace, timestamp: str, dataset_type: str, openml_dirpath: Path, input_dirpath: Path, output_dirpath: Path):
+def downstream_baseline_evaluation(args: argparse.Namespace,
+                                   timestamp: str,
+                                   dataset_type: str,
+                                   openml_dirpath: Path,
+                                   input_dirpath: Path,
+                                   output_dirpath: Path):
     downstream_results_filepath = output_dirpath / f'downstream_{dataset_type}_{timestamp}.csv'
     output_dirpath.mkdir(parents=True, exist_ok=True)
     if args.downstream:
@@ -242,31 +275,48 @@ def main():
 
     data_dirpath = Path(__file__).parents[2] / 'data'
     openml_dirpath = data_dirpath / 'openml'
+    imputation_dirpath = data_dirpath / 'output/imputation'
 
-    output_dirpath = data_dirpath / f'output/imputation/{args.method}'
+    output_dirpath = imputation_dirpath / args.method
     if args.method == 'llm':
-        output_dirpath = data_dirpath / f'output/imputation/{args.method}/{args.llm_model}'
+        output_dirpath = output_dirpath / f'{args.llm_role}/{args.llm_model}'
+
     if args.downstreambaseline == 'train_complete':
-        output_dirpath = data_dirpath / f'output/imputation/baseline/train_complete'
+        output_dirpath = imputation_dirpath / 'baseline/train_complete'
     if args.downstreambaseline == 'train_incomplete':
-        output_dirpath = data_dirpath / f'output/imputation/baseline/train_incomplete'
+        output_dirpath = imputation_dirpath / 'baseline/train_incomplete'
     output_dirpath.mkdir(parents=True, exist_ok=True)
 
     if 'complete' in args.dataset:
         input_dirpath = data_dirpath / 'working/complete'
         if args.downstreambaseline:
             downstream_baseline_evaluation(
-                args=args, timestamp=timestamp, dataset_type='complete', openml_dirpath=openml_dirpath, input_dirpath=input_dirpath, output_dirpath=output_dirpath
+                args=args,
+                timestamp=timestamp,
+                dataset_type='complete',
+                openml_dirpath=openml_dirpath,
+                input_dirpath=input_dirpath,
+                output_dirpath=output_dirpath
             )
         else:
             evaluation(
-                args=args, timestamp=timestamp, dataset_type='complete', openml_dirpath=openml_dirpath, input_dirpath=input_dirpath, output_dirpath=output_dirpath
+                args=args,
+                timestamp=timestamp,
+                dataset_type='complete',
+                openml_dirpath=openml_dirpath,
+                input_dirpath=input_dirpath,
+                output_dirpath=output_dirpath
             )
 
     if 'incomplete' in args.dataset:
         input_dirpath = data_dirpath / 'working/incomplete'
         evaluation(
-            args=args, timestamp=timestamp, dataset_type='incomplete', openml_dirpath=openml_dirpath, input_dirpath=input_dirpath, output_dirpath=output_dirpath
+            args=args,
+            timestamp=timestamp,
+            dataset_type='incomplete',
+            openml_dirpath=openml_dirpath,
+            input_dirpath=input_dirpath,
+            output_dirpath=output_dirpath
         )
 
     return
